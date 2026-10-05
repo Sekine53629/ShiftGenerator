@@ -1,0 +1,35 @@
+# Secrets
+.env
+*.pem
+*.key
+credentials*.json
+client_secret*.json
+.clasprc.json
+
+# clasp（環境ごとの切り替え用の変種もまとめて除外する）
+.clasp.json
+.clasp.*.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Build artifacts
+node_modules/
+dist/
+build/
+
+# 画面から書き出したマスタ・シフトの実データ（実名が入る）
+archive/*.json
+prototype/*.json
+*.export.json
+
+# 実物のシフト表（実名が入る）
+*.xlsx
+*.xls
+*.pdf

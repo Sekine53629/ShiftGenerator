@@ -1,0 +1,407 @@
+{
+  "_comment": "社員マスタの見本【パート中心】週3〜4が多い。公休枠を超える休みが空欄で出て、有休・夏休の判断が要る形になるか / 実在の職員ではありません。データ書き出しタブに貼って「貼り付けた内容を取り込む」。 staff と leave だけを差し替えます。",
+  "staff": [
+    {
+      "id": "s001",
+      "name": "薬剤師 A",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 5,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s002",
+      "name": "薬剤師 B",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 5,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s003",
+      "name": "薬剤師 C",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 4,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "週N日",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s004",
+      "name": "薬剤師 D",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 4,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "週N日",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s005",
+      "name": "薬剤師 E",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 3,
+      "annualOff": "",
+      "maxCons": 3,
+      "patterns": [
+        "●"
+      ],
+      "availDow": [
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "固定曜日",
+      "memo": "火水金 固定",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s006",
+      "name": "薬剤師 F",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 3,
+      "annualOff": "",
+      "maxCons": 3,
+      "patterns": [
+        "○"
+      ],
+      "availDow": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        0
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "週N日",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s007",
+      "name": "派遣 1",
+      "kind": "薬剤師",
+      "employment": "派遣",
+      "weekDays": 0,
+      "annualOff": "",
+      "maxCons": 6,
+      "patterns": [
+        "▲",
+        "●"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "手動",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s008",
+      "name": "事務 A",
+      "kind": "事務員",
+      "employment": "社員",
+      "weekDays": 4,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s009",
+      "name": "事務 B",
+      "kind": "事務員",
+      "employment": "社員",
+      "weekDays": 4,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    }
+  ],
+  "leave": [
+    {
+      "id": "lv001",
+      "staffId": "s001",
+      "grantDate": "2026-04-01",
+      "grantDays": 10,
+      "usedDays": 0
+    },
+    {
+      "id": "lv002",
+      "staffId": "s002",
+      "grantDate": "2026-04-01",
+      "grantDays": 11,
+      "usedDays": 1
+    },
+    {
+      "id": "lv003",
+      "staffId": "s003",
+      "grantDate": "2026-04-01",
+      "grantDays": 12,
+      "usedDays": 2
+    },
+    {
+      "id": "lv004",
+      "staffId": "s004",
+      "grantDate": "2026-04-01",
+      "grantDays": 13,
+      "usedDays": 3
+    },
+    {
+      "id": "lv005",
+      "staffId": "s005",
+      "grantDate": "2026-04-01",
+      "grantDays": 14,
+      "usedDays": 0
+    },
+    {
+      "id": "lv006",
+      "staffId": "s006",
+      "grantDate": "2026-04-01",
+      "grantDays": 10,
+      "usedDays": 1
+    },
+    {
+      "id": "lv007",
+      "staffId": "s008",
+      "grantDate": "2026-04-01",
+      "grantDays": 11,
+      "usedDays": 2
+    },
+    {
+      "id": "lv008",
+      "staffId": "s009",
+      "grantDate": "2026-04-01",
+      "grantDays": 12,
+      "usedDays": 3
+    }
+  ]
+}

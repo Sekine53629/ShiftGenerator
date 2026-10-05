@@ -1,0 +1,578 @@
+{
+  "_comment": "社員マスタの見本【現場の構成に近い形】実際に使われている構成と曜日別下限を写したもの。氏名は伏せてある。薬剤師7名（うち1名は日水木が出られず締め不可、1名は週4）＋派遣2名＋事務2名。連続出勤の上限は4日。薬剤師1のみ本人の希望で3日 / 実在の職員ではありません。データ書き出しタブに貼って「貼り付けた内容を取り込む」。 staff / leave / hours / rules を差し替えます。",
+  "staff": [
+    {
+      "id": "s001",
+      "name": "薬剤師 1",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 3,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "本人の希望で3連勤まで",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s002",
+      "name": "薬剤師 2",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s003",
+      "name": "薬剤師 3",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s004",
+      "name": "薬剤師 4",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s005",
+      "name": "薬剤師 5",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s006",
+      "name": "薬剤師 6",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "日・水・木は出られない。締め作業不可",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s007",
+      "name": "薬剤師 7",
+      "kind": "薬剤師",
+      "employment": "社員",
+      "weekDays": 4,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "●",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "週N日",
+      "memo": "週4",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s008",
+      "name": "派遣 1",
+      "kind": "薬剤師",
+      "employment": "派遣",
+      "weekDays": 0,
+      "annualOff": "",
+      "maxCons": 6,
+      "patterns": [
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "手動",
+      "memo": "遅番のみ",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s009",
+      "name": "派遣 2",
+      "kind": "薬剤師",
+      "employment": "派遣",
+      "weekDays": 0,
+      "annualOff": "",
+      "maxCons": 6,
+      "patterns": [
+        "▲",
+        "●"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": false,
+      "from": "",
+      "to": "",
+      "rule": "手動",
+      "memo": "中長期",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s010",
+      "name": "事務 1",
+      "kind": "事務員",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    },
+    {
+      "id": "s011",
+      "name": "事務 2",
+      "kind": "事務員",
+      "employment": "社員",
+      "weekDays": 5,
+      "annualOff": "",
+      "maxCons": 4,
+      "patterns": [
+        "○",
+        "▲"
+      ],
+      "availDow": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "fixedDow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "canClose": true,
+      "from": "",
+      "to": "",
+      "rule": "通常",
+      "memo": "",
+      "hq": false,
+      "stores": []
+    }
+  ],
+  "leave": [
+    {
+      "id": "lv001",
+      "staffId": "s001",
+      "grantDate": "2026-04-01",
+      "grantDays": 10,
+      "usedDays": 0
+    },
+    {
+      "id": "lv002",
+      "staffId": "s002",
+      "grantDate": "2026-04-01",
+      "grantDays": 11,
+      "usedDays": 1
+    },
+    {
+      "id": "lv003",
+      "staffId": "s003",
+      "grantDate": "2026-04-01",
+      "grantDays": 12,
+      "usedDays": 2
+    },
+    {
+      "id": "lv004",
+      "staffId": "s004",
+      "grantDate": "2026-04-01",
+      "grantDays": 13,
+      "usedDays": 3
+    },
+    {
+      "id": "lv005",
+      "staffId": "s005",
+      "grantDate": "2026-04-01",
+      "grantDays": 14,
+      "usedDays": 0
+    },
+    {
+      "id": "lv006",
+      "staffId": "s006",
+      "grantDate": "2026-04-01",
+      "grantDays": 10,
+      "usedDays": 1
+    },
+    {
+      "id": "lv007",
+      "staffId": "s007",
+      "grantDate": "2026-04-01",
+      "grantDays": 11,
+      "usedDays": 2
+    },
+    {
+      "id": "lv008",
+      "staffId": "s010",
+      "grantDate": "2026-04-01",
+      "grantDays": 12,
+      "usedDays": 3
+    },
+    {
+      "id": "lv009",
+      "staffId": "s011",
+      "grantDate": "2026-04-01",
+      "grantDays": 13,
+      "usedDays": 0
+    }
+  ],
+  "hours": [
+    {
+      "id": "h0",
+      "storeId": "st1",
+      "dow": 0,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 2,
+      "clerkMin": 1
+    },
+    {
+      "id": "h1",
+      "storeId": "st1",
+      "dow": 1,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 6,
+      "clerkMin": 1
+    },
+    {
+      "id": "h2",
+      "storeId": "st1",
+      "dow": 2,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 5,
+      "clerkMin": 1
+    },
+    {
+      "id": "h3",
+      "storeId": "st1",
+      "dow": 3,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 3,
+      "clerkMin": 1
+    },
+    {
+      "id": "h4",
+      "storeId": "st1",
+      "dow": 4,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 5,
+      "clerkMin": 1
+    },
+    {
+      "id": "h5",
+      "storeId": "st1",
+      "dow": 5,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 6,
+      "clerkMin": 1
+    },
+    {
+      "id": "h6",
+      "storeId": "st1",
+      "dow": 6,
+      "open": true,
+      "from": "10:00",
+      "to": "20:00",
+      "pharmMin": 3,
+      "clerkMin": 1
+    }
+  ],
+  "rules": {
+    "reqPlus": 1,
+    "earlyN": 1,
+    "midN": 1,
+    "clerkEarlyN": 1,
+    "countNationalOff": true,
+    "maxConsDefault": 4,
+    "maxOffRun": 14,
+    "needCloser": true,
+    "wishMax": 3,
+    "carryOver": true
+  }
+}

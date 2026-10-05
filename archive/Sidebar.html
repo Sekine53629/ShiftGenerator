@@ -1,0 +1,89 @@
+<!--
+  Sidebar.html — 入力パレット（ShiftClick の代替）
+
+  仕様書: docs/GAS-PORTING-SPEC.md §6.2
+
+  骨組みの段階では画面の骨格とボタンの並びだけを置く。
+  サーバ呼び出し（google.script.run）と状態の反映は実装フェーズ 6 で埋める。
+
+  画面構成（§6.2）:
+    動作ボタン → シフト記号 → 順送り → 背景色 → 医師名/備考 → 状態表示
+-->
+<style>
+  body { font-family: sans-serif; font-size: 13px; margin: 8px; }
+  h2 { font-size: 13px; margin: 12px 0 4px; padding-bottom: 2px;
+       border-bottom: 1px solid #ccc; }
+  h2:first-of-type { margin-top: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; }
+  button { flex: 1 1 auto; min-width: 62px; padding: 6px 4px; cursor: pointer; }
+  button[disabled] { opacity: .45; cursor: not-allowed; }
+  #denied { color: #b00; min-height: 1.2em; margin-top: 4px; }
+  #status { margin-top: 10px; padding-top: 6px; border-top: 1px solid #ccc;
+            color: #555; }
+</style>
+
+<h2>動作</h2>
+<div class="row">
+  <button data-action="runAutoShift">自動作成</button>
+  <button data-action="undoLastSession">変更を戻す</button>
+  <button data-action="exportShiftPdf">PDF出力</button>
+</div>
+
+<h2>シフト記号</h2>
+<div class="row" id="symbols">
+  <!-- TODO(P6): Config の SYM / SYM.OFF_ALL から組み立てる -->
+  <button data-stamp="symbol" data-value="○">○ 早番</button>
+  <button data-stamp="symbol" data-value="●">● 遅半</button>
+  <button data-stamp="symbol" data-value="▲">▲ 遅番</button>
+  <button data-stamp="symbol" data-value="公休">公休</button>
+  <button data-stamp="symbol" data-value="希休">希休</button>
+  <button data-stamp="symbol" data-value="夏休">夏休</button>
+  <button data-stamp="symbol" data-value="有休">有休</button>
+  <button data-stamp="symbol" data-value="有休※">有休※</button>
+  <button data-stamp="erase" data-value="">消去</button>
+</div>
+
+<h2>順送り</h2>
+<div class="row">
+  <!-- 単一セル選択時のみ有効（VBA のダブルクリック／右クリックの代替） -->
+  <button data-cycle="prev">◀ 前へ</button>
+  <button data-cycle="next">次へ ▶</button>
+</div>
+
+<h2>背景色</h2>
+<div class="row">
+  <button data-fill="green">緑</button>
+  <button data-fill="orange">橙</button>
+  <button data-fill="gray">灰</button>
+  <button data-clearfill="1">色消</button>
+</div>
+
+<h2>医師名 / 備考</h2>
+<div class="row">
+  <!-- 候補は Sidebar.getDoctorNames() が集める。実名はコードに書かない（§6.4） -->
+  <select id="doctorSelect"><option value="">医師名を選ぶ</option></select>
+  <button data-stamp="note" data-value="銀行">銀行</button>
+</div>
+
+<h2>対象月</h2>
+<div class="row">
+  <button data-month="-1">◀ 前月</button>
+  <span id="monthLabel">—</span>
+  <button data-month="1">翌月 ▶</button>
+</div>
+
+<div id="denied"></div>
+<div id="status">選択中: —</div>
+
+<script>
+  // TODO(P6): 実装フェーズ 6 で埋める
+  //  1. refresh()  … google.script.run.withSuccessHandler(render).getSidebarState()
+  //  2. render()   … 選択範囲・押せるボタン・押せない理由・対象月を反映する
+  //                  押せない組み合わせはボタンを無効化し、理由を #denied に出す（§6.3）
+  //  3. 各ボタン   … applyStamp / cycleSelection / applyBackground /
+  //                  clearBackground / shiftTargetMonth を呼び、完了後に refresh()
+  //
+  //  【注意】選択範囲の変更を知らせるイベントは Sheets に無い。
+  //  ボタンを押した瞬間の getActiveRange() が対象になる（§6.1）。
+  //  状態表示は操作の直後にだけ更新される、という前提で文言を書くこと。
+</script>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<!--
+  RestoreView.html — 控えから戻す画面（サーバ側は Backup.gs）
+
+  ※ Apps Script はファイル名が拡張子をまたいで一意でなければならないので、
+    .gs と同じ基底名にはしないこと。
+-->
+<style>
+  body { font: 13px/1.6 system-ui, sans-serif; margin: 0; padding: 12px; color: #202124; }
+  h2 { font-size: 13px; margin: 0 0 4px; }
+  .muted { color: #70757a; }
+  .warn { background: #fef7e0; border-left: 3px solid #f9ab00; padding: 8px;
+          margin: 10px 0; }
+  ul { list-style: none; margin: 10px 0; padding: 0;
+       max-height: 210px; overflow: auto; border: 1px solid #d0d3d7; border-radius: 4px; }
+  li { padding: 7px 10px; border-bottom: 1px solid #eee; display: flex;
+       align-items: center; gap: 10px; cursor: pointer; }
+  li:last-child { border-bottom: none; }
+  li:hover { background: #f1f3f4; }
+  li.on { background: #e8f0fe; }
+  li .when { font-weight: 600; min-width: 96px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  button { font: inherit; padding: 6px 14px; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #result { margin-top: 10px; padding: 8px; border-radius: 4px; white-space: pre-wrap; }
+  #result.ok { background: #e6f4ea; }
+  #result.err { background: #fce8e6; color: #c5221f; }
+</style>
+</head>
+<body>
+
+<h2>控えから戻す</h2>
+<div class="muted">戻し先: <b id="source"></b></div>
+
+<div class="warn">
+  戻すのは<b>入力欄の値だけ</b>です。書式や集計行は今のまま残ります。<br>
+  戻す直前に<b>いまの状態も控えます</b>ので、戻したあとで元に戻すこともできます。
+</div>
+
+<ul id="list"></ul>
+
+<div class="row">
+  <button id="run" disabled>選んだ控えに戻す</button>
+  <span class="muted" id="hint">控えを選んでください</span>
+</div>
+
+<div id="result"></div>
+
+<script>
+  const SOURCE = <?!= sourceJson ?>;
+  const LIST = <?!= listJson ?>;
+  let picked = null;
+
+  const $ = function (id) { return document.getElementById(id); };
+  $('source').textContent = SOURCE;
+
+  LIST.forEach(function (b) {
+    const li = document.createElement('li');
+    const when = document.createElement('span');
+    when.className = 'when';
+    when.textContent = b.label;
+    const name = document.createElement('span');
+    name.className = 'muted';
+    name.textContent = b.name;
+    li.appendChild(when);
+    li.appendChild(name);
+    li.onclick = function () {
+      picked = b.name;
+      Array.prototype.forEach.call($('list').children, function (x) { x.className = ''; });
+      li.className = 'on';
+      $('run').disabled = false;
+      $('hint').textContent = b.label + ' の状態に戻します';
+    };
+    $('list').appendChild(li);
+  });
+
+  $('run').onclick = function () {
+    if (!picked) return;
+    if (!confirm('入力欄の値を戻します。よろしいですか。')) return;
+
+    $('run').disabled = true;
+    $('result').className = '';
+    $('result').textContent = '戻しています…';
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        $('result').className = 'ok';
+        $('result').textContent =
+          `戻しました（${res.restored} セル）。\n`
+          + `戻す直前の状態も控えてあります: ${res.safety || '（控えられませんでした）'}`;
+      })
+      .withFailureHandler(function (e) {
+        $('result').className = 'err';
+        $('result').textContent = '戻せませんでした。\n\n' + e.message;
+        $('run').disabled = false;
+      })
+      .apiRestoreBackup(picked);
+  };
+</script>
+</body>
+</html>

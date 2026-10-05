@@ -1,0 +1,15 @@
+{
+  "_comment": "医師マスタの見本データ。実在の医師ではありません（医A〜医J は架空の表記）。画面の「データ書き出し」タブに貼って「貼り付けた内容を取り込む」を押すと、医師マスタだけが入れ替わります。",
+  "doctors": [
+    { "id": "dsmp01", "name": "医師 A", "short": "医A", "order": 1, "memo": "内科・常勤" },
+    { "id": "dsmp02", "name": "医師 B", "short": "医B", "order": 2, "memo": "内科・常勤" },
+    { "id": "dsmp03", "name": "医師 C", "short": "医C", "order": 3, "memo": "小児科" },
+    { "id": "dsmp04", "name": "医師 D", "short": "医D", "order": 4, "memo": "整形外科・午前のみ" },
+    { "id": "dsmp05", "name": "医師 E", "short": "医E", "order": 5, "memo": "皮膚科・第2第4のみ" },
+    { "id": "dsmp06", "name": "医師 F", "short": "医F", "order": 6, "memo": "非常勤" },
+    { "id": "dsmp07", "name": "医師 G", "short": "医G", "order": 7, "memo": "非常勤・土曜" },
+    { "id": "dsmp08", "name": "医師 H", "short": "医H", "order": 8, "memo": "応援" },
+    { "id": "dsmp09", "name": "医師 I", "short": "医I", "order": 9, "memo": "応援" },
+    { "id": "dsmp10", "name": "医師 J", "short": "医J", "order": 10, "memo": "応援" }
+  ]
+}

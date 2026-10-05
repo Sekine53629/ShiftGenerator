@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<!--
+  ImportProfileView.html — Excel から書き出した書式 JSON の貼り込み画面
+  サーバ側は FormatProfile.gs の importFormatProfileJson。
+
+  ※ Apps Script はファイル名が拡張子をまたいで一意でなければならないので、
+    .gs と同じ基底名にはしないこと。
+-->
+<style>
+  body { font: 13px/1.6 system-ui, sans-serif; margin: 0; padding: 12px; color: #202124; }
+  h2 { font-size: 13px; margin: 0 0 6px; }
+  ol { margin: 0 0 10px; padding-left: 1.3em; color: #444; }
+  textarea { width: 100%; height: 210px; font: 11px/1.4 ui-monospace, Consolas, monospace;
+             box-sizing: border-box; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  button { font: inherit; padding: 6px 14px; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #result { margin-top: 10px; padding: 8px; border-radius: 4px;
+            white-space: pre-wrap; min-height: 1.2em; }
+  #result.ok { background: #e6f4ea; }
+  #result.err { background: #fce8e6; color: #c5221f; }
+  .muted { color: #70757a; }
+</style>
+</head>
+<body>
+
+<h2>Excel から書き出した書式を読み込む</h2>
+<ol>
+  <li>Excel 側で <code>tools/ExportFormatProfile.bas</code> を取り込み、
+      <code>GASProfile_書式エクスポート</code> を実行</li>
+  <li>「GAS書式JSON」シートの <b>A1 の中身をすべて</b>コピー</li>
+  <li>下の枠に貼って「読み込む」</li>
+</ol>
+
+<textarea id="json" placeholder='{"role.header.height":24, ... }'></textarea>
+
+<div class="row">
+  <button id="run">読み込む</button>
+  <span class="muted">保存先はスクリプトプロパティです。控えシートにも書き出します。</span>
+</div>
+
+<div id="result"></div>
+
+<script>
+  const $ = function (id) { return document.getElementById(id); };
+
+  function show(text, isError) {
+    const el = $('result');
+    el.textContent = text;
+    el.className = isError ? 'err' : 'ok';
+  }
+
+  $('run').onclick = function () {
+    const text = $('json').value;
+    if (!text.trim()) { show('何も貼られていません。', true); return; }
+
+    $('run').disabled = true;
+    show('読み込んでいます…', false);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        const lines = [
+          `${res.keys} 項目を保存しました（うち既定値と違うもの ${res.changed} 件）。`,
+          `条件付き書式 ${res.cfRules} 件のうち ${res.cfUsed} 件を土日・月外の色に使いました。`,
+        ];
+        // 捨てたキーは黙って落とさない。反映されない理由が追えなくなるため
+        if (res.unknown && res.unknown.length) {
+          lines.push('');
+          lines.push(`知らない項目 ${res.unknown.length} 件は取り込んでいません:`);
+          lines.push('  ' + res.unknown.join(', '));
+        }
+        lines.push('');
+        lines.push('次に作るシフト表からこの書式になります。');
+        show(lines.join('\n'), false);
+        $('run').disabled = false;
+      })
+      .withFailureHandler(function (e) {
+        show('読み込めませんでした。\n\n' + e.message, true);
+        $('run').disabled = false;
+      })
+      .importFormatProfileJson(text);
+  };
+</script>
+</body>
+</html>

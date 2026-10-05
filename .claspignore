@@ -1,0 +1,31 @@
+# clasp push で Apps Script へ送らないものの指定。
+#
+# 「まず全部を除外し、送るものだけを ! で戻す」書き方にしている。
+# ディレクトリ単位の除外は clasp の照合が読みにくく、
+# archive/ を送ってしまうとファイル名が衝突してプロジェクトが壊れるため、
+# 許可リスト方式のほうが安全。
+
+# いったん全部を除外する
+**/**
+
+# --- ここから下が Apps Script へ送るもの ---
+
+# マニフェスト（必須。rootDir 直下に無いと push が失敗する）
+!appsscript.json
+
+# サーバ側のスクリプト（直下の .gs だけ。archive/*.gs は除外のまま）
+!*.gs
+
+# 画面（直下の .html だけ。archive/*.html は除外のまま）
+#   ファイル名を名指しすると、画面を増やしたときに送り忘れる。
+#   実際 ImportProfileView.html を足したとき、ここが原因で push されなかった。
+!*.html
+
+# シフト表エディタ本体。**これが Web アプリの画面**（doGet が出す）。
+#   直下ではなく prototype/ に置いてあるので、上の !*.html では拾われない。
+#   実際、ここが無かったので一度も push されておらず、
+#   デプロイしても旧 WebAppView.html が出ていた。
+#
+#   clasp はサブディレクトリを 'prototype/ShiftGrid' というファイル名にする。
+#   同名の .gs は無いので衝突しない（Apps Script は名前が拡張子をまたいで一意）。
+!prototype/ShiftGrid.html
