@@ -549,6 +549,13 @@ table.mt .del {
   padding: 2px 7px; font-size: 14px; line-height: 1;
 }
 table.mt .del:hover { color: var(--danger); background: transparent; }
+table.mt .tenure { font-size: 11px; padding: 2px 7px; margin-left: 3px; white-space: nowrap; }
+details.archived { margin-top: 22px; }
+details.archived > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+#tenureMsg.bad { color: var(--danger); }
+#tenureStoreWrap[hidden] { display: none; }   /* .modal-ym の display:flex に負けないように */
+#tenureMsg:empty { display: none; }
+#tenureGo.danger:not(:disabled) { background: var(--danger); border-color: var(--danger); }
 /* 確定した月の印 */
 .finalbadge {
   font-size: 11px; padding: 2px 7px; border-radius: 9px;
@@ -855,6 +862,25 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   帯で出していたら気づかずに素通りされた。年月を間違えると、日にちだけ
   合って曜日がずれた表ができるので、ここは止めて確かめてもらう。
 -->
+<!-- しまう／戻す／異動。月（と店舗）を聞く -->
+<dialog class="modal" id="tenureAsk">
+  <h2 id="tenureTitle"></h2>
+  <div class="modal-ym">
+    <label for="tenureMonth" id="tenureLabel"></label>
+    <input type="month" id="tenureMonth" style="width:150px">
+  </div>
+  <div class="modal-ym" id="tenureStoreWrap" hidden>
+    <label for="tenureStore">店舗</label>
+    <select id="tenureStore"></select>
+  </div>
+  <p class="modal-note" id="tenureNote"></p>
+  <p class="modal-msg" id="tenureMsg"></p>
+  <div class="modal-act">
+    <button id="tenureNo">やめる</button>
+    <button id="tenureGo" class="primary"></button>
+  </div>
+</dialog>
+
 <dialog class="modal" id="docAsk">
   <h2>医師シフトを取り込む</h2>
   <p class="modal-file" id="docAskFile"></p>
@@ -1116,7 +1142,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     必ず矛盾します。「手動」は自動生成が触りません（派遣など）。<br>
     <b>本部所属</b>と<b>担当店舗</b>は別物です。本部に籍を置きながら店舗や
     エリアを見る人がいるので、両方を設定できます。担当店舗は<b>複数選べます</b>
-    （エリア管理）。1つも選ばなければ全店の表に出ます。
+    （エリア管理）。1つも選ばなければ全店の表に出ます。<br>
+    <b>在籍 開始・終了と担当店舗は「いまの在籍」</b>の欄です。退職・異動・出戻りは、
+    行の右端の「しまう」「異動」と、下の「しまった社員」の「戻す」で記録してください
+    （前の在籍が履歴として残り、過去の月の表が変わりません）。
   </p>
   <p class="hint">
     薬剤師・派遣薬剤師・事務員で表を分けています。<b>行を追加すると、その区分の最後に入ります。</b>
@@ -1145,6 +1174,17 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     <button data-add="staffClerk">事務員を追加</button>
     <span class="note">はじめは勤務ルール「手動」。「通常」に変えると自動で組みます。</span>
   </div>
+
+  <details class="archived" id="archWrap">
+    <summary>しまった社員 <span id="archCount"></span></summary>
+    <p class="hint">
+      退職・異動した人は<b>消さずに「しまう」</b>と、ここに移ります。在籍していた月の表（過去の月）には
+      そのまま出て、それより後の表には出ません。店舗に戻ってきたら「戻す」で、<b>同じ人として</b>
+      戻せます（過去の記録・有休の履歴が続きます）。<br>
+      行の × は、まだ一度もシフトが入っていない人（登録の間違い）にだけ出ます。
+    </p>
+    <div class="mtwrap"><table class="mt" id="mtArchived"></table></div>
+  </details>
 </div></section>
 
 <section class="panel" data-panel="doctor"><div class="sheet">
@@ -1341,7 +1381,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.16.0';
+  const APP_VERSION = '1.17.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -2485,10 +2525,56 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     return true;
   }
 
+  /**
+   * 在籍の区間。**いまの区間は従来の列（在籍 開始・終了・担当店舗）がそのまま持ち**、
+   * 閉じた区間だけを tenureHist に積む。こうしておくと、
+   *   - 社員マスタの列はこれまでどおり「いまの区間」を直す欄として使える
+   *   - 古い版でこのデータを開いても、いまの区間で今までどおり動く
+   * 店舗を出て戻った人（異動・再入社）は、同じ id のまま区間が増える。
+   * 新しく登録し直すと別人になり、過去の表や有休の履歴が分かれてしまう。
+   */
+  const ymNum_ = t => {
+    const p = String(t || '').split(/[-\/]/);
+    return p.length >= 2 ? Number(p[0]) * 100 + Number(p[1]) : 0;
+  };
+  const ymStr_ = n => Math.floor(n / 100) + '-' + String(n % 100).padStart(2, '0');
+  const ymAdd_ = (n, k) => { const t = Math.floor(n / 100) * 12 + (n % 100 - 1) + k; return Math.floor(t / 12) * 100 + (t % 12) + 1; };
+  function periodsOf_(s) {
+    const hist = Array.isArray(s.tenureHist) ? s.tenureHist : [];
+    return hist.concat([{ from: s.from || '', to: s.to || '', stores: Array.isArray(s.stores) ? s.stores : [] }]);
+  }
+  /** その月、いま開いている店舗の表に出る人か（閉じた区間も見る。過去の月の表を変えないため） */
+  function presentAt_(s, y, m) {
+    const ym = y * 100 + m;
+    return periodsOf_(s).some(p => {
+      const f = ymNum_(p.from), t = ymNum_(p.to);
+      if (f && ym < f) return false;
+      if (t && ym > t) return false;
+      const list = Array.isArray(p.stores) ? p.stores : [];
+      return !list.length || list.indexOf(activeStore) >= 0;
+    });
+  }
+  /** その人のシフトが入っている月（'yyyy-mm' の昇順）。しまう・消すの判断に使う */
+  function shiftMonthsOf_(s) {
+    const set = new Set();
+    values.forEach((v, k) => {
+      if (!v) return;
+      const p = k.split('|');
+      if (p.length === 3 && p[0] === s.id) set.add(p[1]);
+    });
+    return Array.from(set).sort();
+  }
+  const storeNamesOf_ = list => (Array.isArray(list) && list.length)
+    ? list.map(id => (DB.stores.find(t => t.id === id) || {}).name || id).join('・') : '全店';
+  /** 在籍の履歴を1行で（例: 2024-04〜2026-03 札幌店 ／ 2026-10〜 札幌店） */
+  function tenureText_(s) {
+    return periodsOf_(s).map(p => (p.from || '…') + '〜' + (p.to || '') + ' ' + storeNamesOf_(p.stores)).join(' ／ ');
+  }
+
   function buildRows(y, m) {
     const rows = [];
     const push = r => { r.index = rows.length; rows.push(r); return r; };
-    const live = DB.staff.filter(s => inService(s, y, m) && belongsHere(s));
+    const live = DB.staff.filter(s => presentAt_(s, y, m));
 
     /**
      * 日付行の氏名欄に、そこから下が何の欄かを書く。
@@ -5740,7 +5826,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const at = list.indexOf(rec);
     if (at < 0) return false;
     for (let j = at + dir; j >= 0 && j < list.length; j += dir) {
-      if (group(list[j]) !== group(rec)) continue;
+      if (group(list[j]) !== group(rec) || list[j].archived) continue;   // しまった人は見えないので飛ばす
       list[at] = list[j];
       list[j] = rec;
       return true;
@@ -5790,7 +5876,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const tbody = el('tbody');
     // 店舗に属するマスタは、選んでいる店舗のぶんだけ出す
     let rows = (name === 'hours' || name === 'closure') ? storeRows(list) : list;
-    if (group) rows = list.filter(group.pick);
+    if (group) rows = list.filter(r => group.pick(r) && !r.archived);   // しまった人は下の一覧へ
     // 必要人数は医師名欄の行数までしか使わない。使わない行は隠す（値は消さない）
     if (name === 'demand') rows = rows.filter(r => Number(r.doctors) <= docRowCount_());
     rows.forEach(rec => {
@@ -5849,10 +5935,35 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           dc.appendChild(b);
         });
       }
+      if (group) {
+        // **シフトが入っている人は消さない。しまう。** 消すと、過去の月の表からもその人が消える。
+        // 消せるのは、まだ一度もシフトが入っていない人だけ（登録の間違いを取り消す用）
+        if (DB.stores.length > 1) {
+          const tb = el('button', 'tenure', '異動');
+          tb.title = '別の店舗へ移す（この店舗の表には、移る前の月まで出ます）';
+          tb.addEventListener('click', () => askTenure_('transfer', rec));
+          dc.appendChild(tb);
+        }
+        if (shiftMonthsOf_(rec).length) {
+          const hb = el('button', 'tenure', 'しまう');
+          hb.title = '退職・異動などで表から外す（過去の月の表はそのまま。あとで戻せます）';
+          hb.addEventListener('click', () => askTenure_('archive', rec));
+          dc.appendChild(hb);
+          tr.appendChild(dc);
+          tbody.appendChild(tr);
+          return;
+        }
+      }
       if (name !== 'hours' && name !== 'demand') {      // 行数が決まっている表
         const del = el('button', 'del', '×');
         del.title = 'この行を削除（二度押し）';
         arm(del, '削除?', () => {
+          // 描いたあとにシフトが入っていたら消さない（過去の月の表からも消えてしまう）
+          if (group && shiftMonthsOf_(rec).length) {
+            window.alert('この人にはシフトが入っているので、削除せず「しまう」を使ってください。');
+            renderMaster('staff');
+            return;
+          }
           const at = list.indexOf(rec);
           if (at >= 0) list.splice(at, 1);
           save(); renderMaster(name);
@@ -5874,7 +5985,150 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       });
     }
     if (name === 'leave') showLeaveIntegrity();
+    if (group) renderArchived_();
   }
+
+  /** しまった社員の一覧。在籍の履歴を見て、戻せる */
+  function renderArchived_() {
+    const table = $('mtArchived'), cnt = $('archCount');
+    if (!table) return;
+    const list = DB.staff.filter(s => s.archived);
+    if (cnt) cnt.textContent = '（' + list.length + ' 人）';
+    table.textContent = '';
+    const hr = el('tr');
+    ['氏名', '区分', '雇用', '在籍の履歴', 'シフトのある月', ''].forEach(h => hr.appendChild(el('th', '', h)));
+    const thead = el('thead'); thead.appendChild(hr); table.appendChild(thead);
+    const tbody = el('tbody');
+    if (!list.length) {
+      const tr = el('tr'); const td = el('td', 'note', 'しまった社員はいません');
+      td.colSpan = 6; tr.appendChild(td); tbody.appendChild(tr);
+    }
+    list.forEach(rec => {
+      const tr = el('tr');
+      const ms = shiftMonthsOf_(rec);
+      [rec.name || '(氏名なし)', rec.kind || '', rec.employment || '', tenureText_(rec),
+        ms.length ? ms[0] + '〜' + ms[ms.length - 1] + '（' + ms.length + 'か月）' : 'なし']
+        .forEach(v => tr.appendChild(el('td', '', v)));
+      const dc = el('td');
+      const rb = el('button', 'tenure', '戻す');
+      rb.title = 'この店舗の表に、指定した月から戻す（同じ人として。過去の記録・有休の履歴が続きます）';
+      rb.addEventListener('click', () => askTenure_('restore', rec));
+      dc.appendChild(rb);
+      tr.appendChild(dc);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+  }
+
+  /**
+   * しまう／戻す／異動。月（と店舗）を聞いて、在籍の区間を閉じたり開いたりする。
+   *   しまう … いまの区間を「最後に勤務した月」で閉じる
+   *   戻す   … いまの区間を履歴に積み、指定の月から新しい区間を開く
+   *   異動   … いまの区間を移る前の月で閉じて履歴に積み、移った店で新しい区間を開く
+   * どれも**過去の月の表は変えない**（閉じた区間は presentAt_ が見る）。
+   */
+  let tenureCtx = null;
+  function askTenure_(mode, rec) {
+    const dlg = $('tenureAsk');
+    if (!dlg || typeof dlg.showModal !== 'function') return;
+    const today = new Date();
+    const nowYm = today.getFullYear() * 100 + today.getMonth() + 1;
+    const ms = shiftMonthsOf_(rec);
+    let def;
+    if (mode === 'archive') def = ms.length ? ymNum_(ms[ms.length - 1]) : ymAdd_(nowYm, -1);
+    else def = Math.max(ymAdd_(nowYm, 1), ymAdd_(ymNum_(rec.to) || 0, 1));
+    const TXT = {
+      archive: ['しまう', '最後に勤務した月', 'この月より後の表に出なくなります。この月までの表（過去の月）はそのままです。'],
+      restore: ['戻す', '戻ってくる月', 'この月から表に出ます。同じ人として戻すので、過去の記録と有休の履歴が続きます。'],
+      transfer: ['異動', '新しい店舗での最初の月', '前の店舗の表には、この月の前の月まで出ます。']
+    }[mode];
+    tenureCtx = { mode: mode, rec: rec };
+    $('tenureTitle').textContent = (rec.name || '(氏名なし)') + ' を' + TXT[0];
+    $('tenureLabel').textContent = TXT[1];
+    $('tenureNote').textContent = TXT[2];
+    $('tenureMonth').value = ymStr_(def);
+    const sel = $('tenureStore'), wrap = $('tenureStoreWrap');
+    sel.textContent = '';
+    const showStore = mode !== 'archive' && DB.stores.length > 1;
+    wrap.hidden = !showStore;
+    if (showStore) {
+      DB.stores.forEach(t => {
+        const op = el('option', '', t.name || '(名称未設定)');
+        op.value = t.id;
+        sel.appendChild(op);
+      });
+      const cur = Array.isArray(rec.stores) && rec.stores[0];
+      sel.value = mode === 'transfer'
+        ? ((DB.stores.find(t => t.id !== cur) || DB.stores[0]).id)
+        : (cur || activeStore);
+    }
+    $('tenureGo').textContent = TXT[0];
+    $('tenureGo').classList.toggle('danger', mode === 'archive');
+    tenureCheck_();
+    dlg.showModal();
+  }
+  /** 入れた月で何が起こるかを先に見せる。できない月なら押せなくする */
+  function tenureCheck_() {
+    const c = tenureCtx;
+    if (!c) return;
+    const m = ymNum_($('tenureMonth').value);
+    const from = ymNum_(c.rec.from), to = ymNum_(c.rec.to);
+    let err = '', warn = '';
+    if (!m) err = '年月を入れてください';
+    else if (c.mode === 'archive') {
+      if (from && m < from) err = 'いまの在籍の開始（' + c.rec.from + '）より前にはできません';
+      const after = shiftMonthsOf_(c.rec).filter(x => ymNum_(x) > m);
+      if (!err && after.length) {
+        warn = after.join('・') + ' にもシフトが入っています。消しはしませんが、表には出なくなります';
+      }
+    } else if (c.mode === 'restore') {
+      if (to && m <= to) err = '前の在籍の終了（' + c.rec.to + '）より後の月にしてください';
+    } else if (c.mode === 'transfer') {
+      if (from && m <= from) err = 'いまの在籍の開始（' + c.rec.from + '）より後の月にしてください';
+      const sel = $('tenureStore').value;
+      if (!err && Array.isArray(c.rec.stores) && c.rec.stores.length === 1 && c.rec.stores[0] === sel) {
+        err = 'いまと同じ店舗です';
+      }
+    }
+    $('tenureMsg').textContent = err || warn;
+    $('tenureMsg').classList.toggle('bad', !!err);
+    $('tenureGo').disabled = !!err;
+  }
+  function applyTenure_() {
+    const c = tenureCtx;
+    if (!c) return;
+    const m = ymNum_($('tenureMonth').value);
+    if (!m) return;
+    const s = c.rec;
+    const hist = Array.isArray(s.tenureHist) ? s.tenureHist : (s.tenureHist = []);
+    const cur = { from: s.from || '', to: s.to || '', stores: Array.isArray(s.stores) ? s.stores.slice() : [] };
+    snapshot_('在籍の変更の直前');
+    if (c.mode === 'archive') {
+      s.to = ymStr_(m);
+      s.archived = true;
+    } else if (c.mode === 'restore') {
+      hist.push(cur);
+      s.from = ymStr_(m);
+      s.to = '';
+      if (!$('tenureStoreWrap').hidden) s.stores = [$('tenureStore').value];
+      s.archived = false;
+    } else if (c.mode === 'transfer') {
+      cur.to = ymStr_(ymAdd_(m, -1));
+      hist.push(cur);
+      s.from = ymStr_(m);
+      s.to = '';
+      s.stores = [$('tenureStore').value];
+    }
+    tenureCtx = null;
+    $('tenureAsk').close();
+    save();
+    renderMaster('staff');
+    refreshAll();
+  }
+  $('tenureMonth').addEventListener('input', tenureCheck_);
+  $('tenureStore').addEventListener('change', tenureCheck_);
+  $('tenureGo').addEventListener('click', applyTenure_);
+  $('tenureNo').addEventListener('click', () => { tenureCtx = null; $('tenureAsk').close(); });
 
   /**
    * 有休管理と社員マスタの繋がりを検査する。
@@ -7383,6 +7637,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     // 貼り付け途中の内容を消さないよう、空のときだけ入れ直す
     if (btn.dataset.tab === 'data' && !$('dataBox').value) fillDataBox(false);
     if (btn.dataset.tab === 'history') renderHistory();
+    // シフトが入ったかどうかで「しまう」と × が入れ替わるので、開くたびに描き直す
+    if (btn.dataset.tab === 'staff') renderMaster('staff');
     if (btn.dataset.tab === 'outcolor') renderOutColors_();
     if (btn.dataset.tab === 'grid') fitScreen_();     // 隠れていたあいだは高さを測れない
   });
