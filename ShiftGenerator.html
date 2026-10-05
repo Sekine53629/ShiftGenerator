@@ -1260,12 +1260,16 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     <button id="dataDump" class="primary">いまの内容を書き出す</button>
     <button id="dataApply">貼り付けた内容を取り込む</button>
     <button id="dataReset">初期値に戻す</button>
+    <button id="dataRestore" disabled>直前の控えに戻す</button>
     <span class="note" id="dataStat"></span>
   </div>
   <textarea id="dataBox" spellcheck="false"
     style="width:100%;height:390px;font-family:'Roboto Mono',monospace;font-size:11px;line-height:1.45"></textarea>
   <p class="hint">
-    取り込みは、いまのマスタと入力をすべて置き換えます。書き出しておいてから行ってください。
+    取り込みは、貼った内容に含まれるマスタと、貼った月・人のシフトだけを置き換えます。
+    貼っていない月や、いなくなった人の過去のシフトは消しません。
+    取り込み・初期化の直前の内容は自動で控え、「直前の控えに戻す」で戻せます
+    （保存先フォルダに繋いでいれば、フォルダの backup にも残ります）。
   </p>
 </div></section>
 
@@ -1337,7 +1341,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.15.1';
+  const APP_VERSION = '1.16.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -1375,6 +1379,56 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    */
   let dbPersist = true;
   let cellsPersist = true;
+
+  /* ═══ 消さないための控え ═══════════════════════════════
+     保存したときの時刻（savedAt）と、それを保存先フォルダに書けたときの時刻（folderSyncedAt）を
+     持つ。フォルダに繋ぐときに**どちらが新しいかを見て、新しいほうで始める**ために使う。
+     以前はフォルダを常に正としていたので、
+       - 未接続のまま作業してから「接続」を押すと、その作業がフォルダの古い中身で消えた
+       - 直した直後（まとめ書きの 0.4 秒のあいだ）に落ちると、次に開いたとき古い中身に戻った
+     起動直後の自動生成は「利用者の保存」に数えない（booting）。数えると、
+     ブラウザの保存が消えたあとに作り直された空の表が、フォルダの中身より新しいことになる。 */
+  const META_KEY = 'shiftgrid.meta.v1';
+  const BACKUP_KEY = 'shiftgrid.backup.v1';   // 取り込み・初期化・入れ替えの直前の控え（1つ）
+  const BACKUP_KEEP = 30;                     // 保存先フォルダの backup に残す数
+  let booting = true;
+  /** 起動時に読めなかったもの（'マスタ' / 'シフト'）。中身は '.corrupt' を付けて残してある */
+  const loadProblems = [];
+
+  function readMeta_() {
+    try {
+      const o = JSON.parse(localStorage.getItem(META_KEY) || 'null');
+      return o && typeof o === 'object' ? o : {};
+    } catch (e) { return {}; }
+  }
+  function writeMeta_(patch) {
+    try { localStorage.setItem(META_KEY, JSON.stringify(Object.assign(readMeta_(), patch))); }
+    catch (e) { console.error('[writeMeta_] ' + (e && e.message)); }
+  }
+  function markLocalSaved_() {
+    if (!booting) writeMeta_({ savedAt: new Date().toISOString() });
+  }
+  /** 読めなかった保存を、上書きされる前に別の名前で残す */
+  function keepCorrupt_(key, raw, what) {
+    try { localStorage.setItem(key + '.corrupt', raw); } catch (e) { /* 容量。警告は出す */ }
+    if (loadProblems.indexOf(what) < 0) loadProblems.push(what);
+  }
+  /**
+   * マスタとシフトを、そのまま戻せる形にまとめる。
+   * master と shift は「データ書き出し」と同じ形（貼れば取り込める）。
+   * raw は月のメモまで含めた全部で、「直前の控えに戻す」はこちらを使う。
+   */
+  function backupObj_(db, flat, reason) {
+    const shift = {};
+    Object.keys(flat || {}).forEach(k => {
+      const p = k.split('|');
+      if (p.length !== 3 || !flat[k]) return;
+      ((shift[p[1]] = shift[p[1]] || {})[p[0]] = shift[p[1]][p[0]] || {})[p[2]] = flat[k];
+    });
+    return { kind: 'shiftgrid-backup', reason: reason, at: new Date().toISOString(),
+      appVersion: APP_VERSION, master: db, shift: shift, raw: flat || {} };
+  }
+  const valuesFlat_ = () => { const o = {}; values.forEach((v, k) => { if (v) o[k] = v; }); return o; };
 
   /* 集計列（右）— 仕様書 §5.4 の6列。
      syms は数える記号の一覧。画面の集計と Excel の数式（COUNTIF）の両方がこれを使う */
@@ -1846,13 +1900,16 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        let parsed = null;
+        try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
         if (parsed && parsed.staff && parsed.rules) {
           backupBeforeUpgrade_(raw, parsed);
           return migrateDb_(parsed);
         }
+        // 読めない。初期値で開くが、**黙って上書きしない**。中身を残して知らせる
+        keepCorrupt_(STORE_KEY, raw, 'マスタ');
       }
-    } catch (e) { /* 読めなければ初期値で開く */ }
+    } catch (e) { console.error('[load] ' + (e && e.message)); }
     return seedDb();
   }
 
@@ -1875,6 +1932,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(DB));
       dbPersist = true;
+      markLocalSaved_();
     } catch (e) {
       // 画面は動かすが、保存できていないことは必ず出す（checkRules が拾う）
       dbPersist = false;
@@ -1899,6 +1957,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       values.forEach((v, k) => { if (v) o[k] = v; });
       localStorage.setItem(CELLS_KEY, JSON.stringify(o));
       cellsPersist = true;
+      markLocalSaved_();
     } catch (e) {
       cellsPersist = false;
       return false;
@@ -1915,7 +1974,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     try {
       const raw = localStorage.getItem(CELLS_KEY);
       if (!raw) return 0;
-      const o = JSON.parse(raw);
+      let o;
+      try { o = JSON.parse(raw); } catch (e) { o = null; }
+      if (!o || typeof o !== 'object') { keepCorrupt_(CELLS_KEY, raw, 'シフト'); return 0; }
       let n = 0;
       Object.keys(o).forEach(k => {
         // '<行キー>|yyyy-mm|日' の形だけを通す。壊れた控えで表を壊さない
@@ -1947,6 +2008,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     CELLS_DIR: 'cells',           // シフトの中身。月ごとに cells\2026-11.json
     CELLS_FILE: 'cells.json',     // 前の形（全部の月を1つに）。見つけたら月ごとに分ける
     CELLS_BAK: 'cells.json.bak',  // 分けたあと、前の形はこの名前で残す
+    META_FILE: 'meta.json',       // フォルダの中身がいつの保存か（{ savedAt }）
+    BACKUP_DIR: 'backup',         // 置き換える前の中身。貼れば戻せる形で残す
     IDB: 'shiftgrid.fs',          // 選んだフォルダを覚えておく所
     IDB_STORE: 'handles',
     IDB_KEY: 'dataDir',
@@ -2042,8 +2105,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       b.hidden = true;
       return;
     }
-    st.style.color = '';
-    st.textContent = '保存先フォルダに未接続（この端末のブラウザにだけ保存しています）';
+    // つなげなかった理由（控えを書けなかった など）は、未接続でも出す
+    st.style.color = FS.error ? 'var(--danger)' : '';
+    st.textContent = (FS.error ? '⚠ ' + FS.error + '　' : '')
+      + '保存先フォルダに未接続（この端末のブラウザにだけ保存しています）';
     b.hidden = false;
     b.textContent = FS.pending ? '保存先フォルダに接続' : '保存先フォルダを選ぶ（初回だけ）';
   }
@@ -2069,26 +2134,80 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       cells = await readJson_(got.data, LOCAL_DIR.CELLS_FILE);
       legacy = !!cells;
     }
+    /**
+     * **どちらで始めるか。** フォルダを常に正にすると、まだフォルダに書けていない
+     * この端末の作業（未接続のあいだの作業・落ちる直前の作業）が消える。
+     *   - フォルダが空 → この端末の中身を書く
+     *   - この端末に、フォルダへ書けていない保存が無い → フォルダの中身で始める
+     *   - 書けていない保存があり、フォルダは前に書いたときのまま → この端末の中身を書く
+     *   - どちらも変わっている（別の端末が書いた など）→ 聞く
+     * どちらに決めても、**置き換えられる側は backup に残す**。
+     */
+    const fmeta = (await readJson_(got.data, LOCAL_DIR.META_FILE)) || {};
+    const lmeta = readMeta_();
+    const folderHas = !!((db && db.staff) || (cells && Object.keys(cells).length));
+    const localHas = !!lmeta.savedAt;
+    const localUnsynced = localHas && !(lmeta.folderSyncedAt && lmeta.savedAt <= lmeta.folderSyncedAt);
+    const folderSame = !!lmeta.folderSyncedAt && fmeta.savedAt === lmeta.folderSyncedAt;
+    const when = t => t ? fmtWhen_(t) : '不明';
+    let useLocal;
+    if (!folderHas) useLocal = true;
+    else if (!localUnsynced) useLocal = false;
+    else if (folderSame) useLocal = true;
+    else {
+      useLocal = window.confirm(
+        'この端末と保存先フォルダの両方に、相手に無い変更があります。\n\n'
+        + '　この端末の最後の保存: ' + when(lmeta.savedAt) + '\n'
+        + '　フォルダの最後の保存: ' + when(fmeta.savedAt) + '\n\n'
+        + 'OK → この端末の中身で続ける（フォルダの中身は backup に残します）\n'
+        + 'キャンセル → フォルダの中身で続ける（この端末の中身は backup に残します）');
+    }
+
     FS.dir = got.data;
     FS.cellsDir = cellsDir;
     FS.base = got.base.name;
     FS.on = true;
     FS.pending = null;
     FS.error = '';
-    if (db && db.staff && db.rules) {
-      DB = migrateDb_(db);
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch (e) { /* 控えだけ */ }
+    try {
+      if (useLocal && folderHas) {
+        await fsWriteBackup_(got.data, backupObj_(db, cells, 'フォルダの内容'));
+      } else if (!useLocal && localHas) {
+        await fsWriteBackup_(got.data, backupObj_(DB, valuesFlat_(), 'この端末の内容'));
+      }
+    } catch (e) {
+      // 控えが書けないなら置き換えない。消すよりは、繋がないほうがよい
+      console.error('[fsAttach_] 控えを書けません: ' + ((e && e.message) || e));
+      FS.on = false;
+      FS.dir = null;
+      FS.error = '控えを書けないため、つなぎませんでした（' + ((e && e.message) || e) + '）';
+      fsNote_();
+      return;
     }
-    if (cells && typeof cells === 'object') {
-      values.clear();
-      Object.keys(cells).forEach(k => {
-        const okCell = /^[^|]+\|\d{4}-\d{2}\|\d{1,2}$/.test(k);
-        const okMemo = /^memo\|\d{4}-\d{2}$/.test(k);
-        if ((okCell || okMemo) && cells[k]) values.set(k, String(cells[k]));
-      });
+
+    if (useLocal) {
+      FS.dirty.db = true;
+      FS.dirty.cells = true;
+    } else {
+      if (db && db.staff && db.rules) DB = migrateDb_(db);
+      if (cells && typeof cells === 'object') {
+        values.clear();
+        Object.keys(cells).forEach(k => {
+          const okCell = /^[^|]+\|\d{4}-\d{2}\|\d{1,2}$/.test(k);
+          const okMemo = /^memo\|\d{4}-\d{2}$/.test(k);
+          if ((okCell || okMemo) && cells[k]) values.set(k, String(cells[k]));
+        });
+      }
+      // この端末の保存もフォルダの中身にそろえる（以前はシフトだけ古いまま残っていた）
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(DB));
+        localStorage.setItem(CELLS_KEY, JSON.stringify(valuesFlat_()));
+      } catch (e) { /* 控えだけ */ }
+      const at = fmeta.savedAt || new Date().toISOString();
+      writeMeta_({ savedAt: at, folderSyncedAt: at });
+      if (!db) FS.dirty.db = true;
+      if (!cells || legacy) FS.dirty.cells = true;
     }
-    if (!db) FS.dirty.db = true;          // 初めてのフォルダ。いまの中身を書いておく
-    if (!cells || legacy) FS.dirty.cells = true;
     if (FS.dirty.db || FS.dirty.cells) await fsFlush_();
     // 月ごとに分け終えたら、前の形は名前を変えて残す（消さない。万一のときに戻せる）
     if (legacy && !FS.error) {
@@ -2109,6 +2228,24 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     fsNote_();
   }
 
+  /** 保存先フォルダの backup に1つ書き、古いものを BACKUP_KEEP 個まで減らす */
+  async function fsWriteBackup_(dataDir, obj) {
+    const dir = await dataDir.getDirectoryHandle(LOCAL_DIR.BACKUP_DIR, { create: true });
+    const stamp = obj.at.replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    // ファイル名は英数字だけにする（どの環境のファイルシステムでも通るように）。理由は中身に日本語で持つ
+    const CODE = { '取り込みの直前': 'before-import', '初期化の直前': 'before-reset',
+      '控えに戻す直前': 'before-restore', 'フォルダの内容': 'folder', 'この端末の内容': 'this-pc' };
+    const name = stamp + '-' + (CODE[obj.reason] || 'backup') + '.json';
+    await writeText_(dir, name, JSON.stringify(obj));
+    const names = [];
+    for await (const [n, h] of dir.entries()) if (h.kind === 'file' && /\.json$/.test(n)) names.push(n);
+    names.sort();
+    for (const n of names.slice(0, Math.max(0, names.length - BACKUP_KEEP))) {
+      try { await dir.removeEntry(n); } catch (e) { /* 残っても害はない */ }
+    }
+    return name;
+  }
+
   /** 保存のたびに呼ぶ。少し待ってまとめて書く */
   function fsTouch_(what) {
     if (!FS.on) return;
@@ -2121,6 +2258,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (!FS.on || !FS.dir) return;
     clearTimeout(FS.timer);
     FS.timer = 0;
+    const stamp = readMeta_().savedAt || new Date().toISOString();   // この時点までの保存を書く
     try {
       if (FS.dirty.db) { FS.dirty.db = false; await writeJson_(FS.dir, LOCAL_DIR.DB_FILE, DB); }
       if (FS.dirty.cells) {
@@ -2135,6 +2273,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           await writeText_(dir, ym + '.json', text);
           FS.written[ym] = text;
         }
+      }
+      // 書き終えたら「フォルダはこの時点の中身」と記す。次に繋いだとき、どちらが新しいかの手がかり
+      if (!FS.dirty.db && !FS.dirty.cells) {
+        await writeJson_(FS.dir, LOCAL_DIR.META_FILE, { savedAt: stamp });
+        writeMeta_({ folderSyncedAt: stamp });
       }
       if (FS.error) { FS.error = ''; fsNote_(); }
     } catch (e) {
@@ -3461,6 +3604,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     // 保存できていないことを黙っていてはいけない。画面は動き続けるので、
     // 利用者は保存できたと思ったまま作業を続けてしまう
+    if (loadProblems.length) {
+      msgs.unshift('⚠ 保存してあった' + loadProblems.join('・') + 'が壊れていて読めませんでした。'
+        + '中身は消さずに残してあります（' + loadProblems.map(w => w === 'マスタ' ? STORE_KEY : CELLS_KEY)
+          .map(k => k + '.corrupt').join('・') + '）。保存先フォルダに繋ぐか、控えを取り込んでください');
+    }
     if (!cellsPersist || !dbPersist) {
       msgs.push('⚠ このブラウザに保存できていません（'
         + [!cellsPersist ? 'シフト' : '', !dbPersist ? 'マスタ' : '']
@@ -6893,6 +7041,59 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   $('dataDump').addEventListener('click', () => fillDataBox(true));
 
+  /**
+   * いまのマスタと全部の月を控える（この端末に1つ。フォルダに繋いでいれば backup にも）。
+   * この端末の控えが書けなくても、フォルダに書ければ戻せる。どちらも駄目なら知らせる。
+   */
+  function takeBackup_(reason) {
+    const obj = backupObj_(JSON.parse(JSON.stringify(DB)), valuesFlat_(), reason);
+    let ok = false;
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(obj)); ok = true; }
+    catch (e) { console.error('[takeBackup_] ' + (e && e.message)); }
+    if (FS.on && FS.dir) {
+      // 書き終える前に置き換えのぶんがフォルダへ書かれないよう、まとめ書きより先に始める
+      fsWriteBackup_(FS.dir, obj).catch(e => {
+        console.error('[takeBackup_] ' + (e && e.message));
+        if (!ok) window.alert('控えを書けませんでした。「いまの内容を書き出す」で控えを取ってください');
+      });
+    } else if (!ok) {
+      window.alert('控えを書けませんでした（容量）。この操作のあとは元に戻せません。');
+    }
+    renderRestoreBtn_();
+    return obj;
+  }
+  function readBackup_() {
+    try {
+      const o = JSON.parse(localStorage.getItem(BACKUP_KEY) || 'null');
+      return o && o.kind === 'shiftgrid-backup' && o.master ? o : null;
+    } catch (e) { return null; }
+  }
+  function renderRestoreBtn_() {
+    const b = $('dataRestore');
+    if (!b) return;
+    const bk = readBackup_();
+    b.disabled = !bk;
+    b.title = bk ? fmtWhen_(bk.at) + '・' + bk.reason + ' の内容に戻します（いまの内容は入れ替わりで控えます）'
+      : 'まだ控えはありません（取り込み・初期化の直前に自動で取ります）';
+  }
+  /** 控えに戻す。いまの内容は入れ替わりで控えるので、戻したことも戻せる */
+  arm($('dataRestore'), 'もう一度押すと戻す', () => {
+    const bk = readBackup_();
+    if (!bk) { renderRestoreBtn_(); return; }
+    takeBackup_('控えに戻す直前');
+    DB = migrateDb_(bk.master);
+    values.clear();
+    Object.keys(bk.raw || {}).forEach(k => { if (bk.raw[k]) values.set(k, String(bk.raw[k])); });
+    syncActiveStore();
+    save();
+    Object.keys(COLS).forEach(renderMaster);
+    renderRules();
+    renderMemoDefault();
+    refreshAll();
+    dataStat(fmtWhen_(bk.at) + '（' + bk.reason + '）の内容に戻しました。');
+  });
+  renderRestoreBtn_();
+
   $('dataApply').addEventListener('click', () => {
     let parsed;
     try { parsed = JSON.parse($('dataBox').value); }
@@ -6908,6 +7109,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       dataStat('中身が見つかりません。' + KEYS.join(' / ') + ' か shift を含めてください。');
       return;
     }
+    // **置き換える前に、いまの全部（マスタ＋全部の月）を控える。** 月ごとの控え（編集履歴）だけでは、
+    // 貼っていない月やマスタは戻せない
+    takeBackup_('取り込みの直前');
+    if (parsed.shift) snapshot_('取り込みの直前');   // いま開いている月は「← 戻す」でも戻せるように
     present.forEach(k => { DB[k] = master[k]; });
     /**
      * **貼られた側の版で判定する。** DB には新しい版が入っているので、
@@ -6921,9 +7126,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (present.indexOf('stores') >= 0) syncActiveStore();
     renderMemoDefault();
     save();
-    // 社員が入れ替わるとセルのキー（社員ID）が合わなくなるので入力を捨てる。
-    // それ以外は、貼られた行だけを入れ替える（下の shift の処理で行ごとに消す）
-    if (present.indexOf('staff') >= 0) values.clear();
+    /**
+     * **社員を貼っても、シフトは消さない。** 以前はここで全部の月の入力を捨てていたため、
+     * 社員マスタだけを貼ると全部の月のシフトが、古い控えを貼ると控えに無い月が消えていた。
+     * セルは社員 ID で持っているので、いなくなった人のセルは表に出ないだけで害はない
+     * （過去の月の記録として残す）。貼られた月・人の行だけを下で入れ替える。
+     */
     if (parsed.targetMonth) {
       const p = String(parsed.targetMonth).split('-');
       if (p.length === 2) { $('yy').value = Number(p[0]); $('mm').value = Number(p[1]); }
@@ -6934,7 +7142,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     // 表の中身は行が出来てからでないと入れられない
     if (parsed.shift) {
-      snapshot_('取り込みの直前');
       markEdited_();
       // 新しい形は 年月 -> 行 -> 日。月を持たない古い形は対象月のものとして扱う
       const isByMonth = Object.keys(parsed.shift).some(k => /^\d{4}-\d{1,2}$/.test(k));
@@ -6972,6 +7179,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   });
 
   arm($('dataReset'), 'もう一度押すと初期化', () => {
+    takeBackup_('初期化の直前');
     DB = seedDb();
     save();
     values.clear();
@@ -6979,7 +7187,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     renderRules();
     refreshAll();
     autoGenerate();
-    dataStat('初期値に戻しました。');
+    dataStat('初期値に戻しました。元の内容は「直前の控えに戻す」で戻せます。');
   });
 
   // Ctrl+P の直前にも測る。注記を書き足したぶんで溢れることがある
@@ -9135,11 +9343,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     $('syncBar').hidden = false;
     syncBoot().then(okServer => {
       if (!okServer && !restored) autoGenerate();
+      booting = false;
     });
   } else {
     if (!restored) {
       autoGenerate();   // 初めて開いたとき。空の表では集計も色も確かめられない
     }
+    booting = false;    // ここから先の保存は利用者の保存（フォルダとの新旧比べに使う）
     fsNote_();          // まず「未接続」を出す（覚えているフォルダを調べ終えたら直す）
     fsBoot_();          // 保存先フォルダ（ローカル運用）。覚えているフォルダがあれば、その中身で始める
   }
