@@ -1,4 +1,37 @@
-# AutoShiftGenerator（GAS 版）
+# シフト作成ツール
+
+薬局のスタッフのシフト表を作るツールです。医師の出勤人数から必要な薬剤師の人数を出し、
+希望休を守りながら、早番・遅番・遅半をスタッフのあいだで均等に配ります。
+
+## 使い方
+
+**[`ShiftGenerator.html`](ShiftGenerator.html) 1つで動きます。** インストールもインターネットも要りません。
+
+1. [`ShiftGenerator.html`](ShiftGenerator.html) を開き、右上の **ダウンロードのボタン（Download raw file）** で保存する
+   （[リリース](https://github.com/Sekine53629/ShiftGenerator/releases/latest) の zip にも入っています）
+2. 好きなフォルダ（たとえば `ドキュメント\ShiftGenerator`）に置き、**Microsoft Edge か Google Chrome** で開く
+3. 画面の **「保存先フォルダを選ぶ（初回だけ）」** で、HTML を置いたフォルダを選ぶ。
+   マスタは `data\db.json`、シフトは `data\cells\2026-11.json` のように月ごとに保存されます
+4. **社員マスタ**・**医師マスタ**に人を入れ、年月を選んで医師名の欄を埋める
+5. 希望休・有休を入れてから **「自動生成」** を押す
+
+手で入れたセル（希望休・有休・手で置いたシフト）は緑の文字で出て、自動生成で書き換わりません。
+表の下に「確認が要るところ」（週の勤務日数・連勤・早番と遅番の人数など）が出ます。
+月ができあがったら **「月を確定」** を押すと、次に開いたときは翌月から始まります。
+
+| 出力 | |
+|---|---|
+| **PDF** | 印刷画面で「PDF に保存」。A4 横 1 枚に収まります |
+| **スプレッドシート** | `.xlsx` で保存。集計（公休・早番の回数・過不足など）は数式で入ります |
+
+PDF と Excel の色は **「出力の色」タブ** で変えられます。
+データは選んだフォルダの中だけにあり、どこにも送られません。フォルダごと控えを取れば、別のパソコンへも移せます。
+
+---
+
+# 開発者向け: AutoShiftGenerator（GAS 版）
+
+以下はソースコードと Google Apps Script 版の説明です。ツールを使うだけなら、上の「使い方」で足ります。
 
 薬局のシフト表を Google スプレッドシート上で自動作成する Google Apps Script。
 Excel VBA 版 [`Auto_Shift_Generator`](https://github.com/Sekine53629/Auto_Shift_Generator)

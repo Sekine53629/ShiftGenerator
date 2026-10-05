@@ -21,6 +21,9 @@
 #   実際 ImportProfileView.html を足したとき、ここが原因で push されなかった。
 !*.html
 
+# 配布用の写し（中身は prototype/ShiftGrid.html と同じ）。Apps Script へは送らない
+ShiftGenerator.html
+
 # シフト表エディタ本体。**これが Web アプリの画面**（doGet が出す）。
 #   直下ではなく prototype/ に置いてあるので、上の !*.html では拾われない。
 #   実際、ここが無かったので一度も push されておらず、
