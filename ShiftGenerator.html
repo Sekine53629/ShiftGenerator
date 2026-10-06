@@ -743,6 +743,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 .modal .modal-ym label { font-size: 13px; font-weight: 600; margin-right: 4px; }
 .modal .modal-ym input { width: 88px; text-align: right; }
 .modal .modal-ym input#docAskM { width: 62px; }
+.modal .modal-ym + .modal-ym { margin-top: 10px; }
+.modal .modal-ym select { max-width: 100%; }
 .modal .modal-msg {
   margin: 14px 0 0; padding: 9px 11px; border-radius: 4px;
   background: var(--agg); font-size: 13px; line-height: 1.6;
@@ -890,6 +892,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     <span>年</span>
     <input type="number" id="docAskM" min="1" max="12" step="1">
     <span>月</span>
+  </div>
+  <div class="modal-ym" id="docAskBlockRow" hidden>
+    <label for="docAskBlock">読む暦</label>
+    <select id="docAskBlock"></select>
   </div>
   <p class="modal-msg" id="docAskMsg"></p>
   <p class="modal-hint" id="docAskHint"></p>
@@ -1381,7 +1387,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.17.0';
+  const APP_VERSION = '1.18.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -9033,75 +9039,145 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const shared = sharedStrings_(files['xl/sharedStrings.xml']
       ? xml_(files['xl/sharedStrings.xml']) : null);
 
-    // 1枚目を暦として読む
-    const cells = sheetCells_(xml_(files['xl/worksheets/sheet1.xml']), shared);
+    /**
+     * **全部のシートを、ブックの並び順に読む。** 1か月ごとにシートを分けたブックも、
+     * 1枚に全部の月を積んだブックもある。シートの実体は workbook.xml.rels で引く
+     * （sheet1.xml が1枚目とは限らない）。引けなければ sheetN.xml の番号順
+     */
+    const rels = {};
+    const relDoc = files['xl/_rels/workbook.xml.rels'] ? xml_(files['xl/_rels/workbook.xml.rels']) : null;
+    if (relDoc) {
+      Array.from(relDoc.getElementsByTagName('Relationship')).forEach(r => {
+        rels[r.getAttribute('Id')] = 'xl/' + String(r.getAttribute('Target') || '').replace(/^\/?(xl\/)?/, '');
+      });
+    }
+    let sheets = Array.from(wb.getElementsByTagName('sheet')).map(sh => ({
+      name: sh.getAttribute('name') || '',
+      path: rels[sh.getAttribute('r:id') || sh.getAttributeNS(
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')]
+    })).filter(sh => sh.path && files[sh.path]);
+    if (!sheets.length) {
+      sheets = Object.keys(files).filter(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
+        .sort((a, b) => Number(/(\d+)\.xml$/.exec(a)[1]) - Number(/(\d+)\.xml$/.exec(b)[1]))
+        .map((k, n) => ({ name: 'シート' + (n + 1), path: k }));
+    }
 
-    const byRow = {};
-    Object.keys(cells).forEach(ref => {
-      const p2 = refOf_(ref);
-      if (!p2) return;
-      (byRow[p2.row] = byRow[p2.row] || []).push({ col: p2.col, ref: ref });
+    const blocks = [];
+    sheets.forEach(sh => {
+      const cells = sheetCells_(xml_(files[sh.path]), shared);
+      const byRow = {};
+      Object.keys(cells).forEach(ref => {
+        const p2 = refOf_(ref);
+        if (!p2) return;
+        (byRow[p2.row] = byRow[p2.row] || []).push({ col: p2.col, ref: ref });
+      });
+      const allRows = Object.keys(byRow).map(Number).sort((x, y) => x - y);
+
+      /**
+       * 曜日の見出し行（日〜土が5つ以上そろう行）。**見出し1つが暦1つ。**
+       * 次の見出しの手前までをその暦とする。どの暦を取り込むかは年月で選ぶ（pickBlock_）。
+       * 以前は「いちばん上の暦だけ」を読んでいたが、全部の月が入ったブックでは
+       * 目当ての月が上にあるとは限らない。
+       */
+      const heads = allRows.filter(r =>
+        byRow[r].filter(x => DOW_SET.indexOf((cells[x.ref].v || '').trim()) >= 0).length >= 5);
+      heads.forEach((headRow, hi) => {
+        const blockEnd = hi + 1 < heads.length ? heads[hi + 1] : Infinity;   // 次の暦の手前まで
+
+        // 列ごとの曜日。帳尻を合わせるのに使う
+        const dowOfCol = {};
+        byRow[headRow].forEach(x => {
+          const i = DOW_SET.indexOf((cells[x.ref].v || '').trim());
+          if (i >= 0) dowOfCol[x.col] = i;
+        });
+
+        // 見出しより下・次の暦より上の数値を集める。A1・A2 はここで外れる
+        const serials = [];
+        const dayCells = [];
+        Object.keys(cells).forEach(ref => {
+          const p2 = refOf_(ref);
+          if (!p2 || p2.row <= headRow || p2.row >= blockEnd) return;
+          if (dowOfCol[p2.col] === undefined) return;      // 暦の列だけを見る
+          const raw = cells[ref].v;
+          if (!/^\d+(\.\d+)?$/.test(raw)) return;
+          const n = Number(raw);
+          if (n >= XL_DAY_MIN && n <= XL_DAY_MAX) {
+            const d = xlDate_(n);
+            serials.push({ col: p2.col, row: p2.row, d: d.d, ym: d.y + '-' + pad2_(d.m) });
+          } else if (Number.isInteger(n) && n >= 1 && n <= 31) {
+            dayCells.push({ col: p2.col, row: p2.row, d: n });
+          }
+        });
+        if (!serials.length && !dayCells.length) return;   // 日付の無い見出し（凡例など）
+
+        // その暦に、どの年月の日付が何日あるか（暦の端に前後の月が混ざる）
+        const yms = {};
+        serials.forEach(x => { yms[x.ym] = (yms[x.ym] || 0) + 1; });
+        const main = Object.keys(yms).sort((x, y) => yms[y] - yms[x] || (x < y ? 1 : -1))[0] || '';
+        blocks.push({
+          sheet: sh.name, headRow: headRow,
+          cells: cells, dowOfCol: dowOfCol, blockEnd: blockEnd,
+          // 通し番号があるならそちらを使う。無ければ 1〜31 の数値
+          days: serials.length ? serials : dayCells,
+          fromSerial: !!serials.length,
+          yms: yms, ym: main
+        });
+      });
     });
-    const allRows = Object.keys(byRow).map(Number).sort((x, y) => x - y);
+    if (!blocks.length) {
+      throw new Error('曜日の見出し（日〜土）と日付の行が見つかりません');
+    }
 
     /**
-     * 曜日の見出し行（日〜土が5つ以上そろう行）。
-     *
-     * **いちばん上の1つだけを使う。** 実物には下のほうに別の月の暦が
-     * 残っていることがある（送り主の作りかけ）。全部読むと、日にちだけで
-     * 突き合わせるので、下の月が上の月を上書きしてしまう。
+     * ブックに入っている月。**7日以上ある月だけ**を数える（暦の端の前後の月を外す）。
+     * 見当（suggest）は、いちばん新しい月。全部の月が入ったブックでは、ふつう最後の月を取り込む
      */
-    const heads = allRows.filter(r =>
-      byRow[r].filter(x => DOW_SET.indexOf((cells[x.ref].v || '').trim()) >= 0).length >= 5);
-    if (!heads.length) throw new Error('曜日の見出し（日〜土）が見つかりません');
-    const headRow = heads[0];
-    const blockEnd = heads.length > 1 ? heads[1] : Infinity;   // 次の暦の手前まで
-
-    // 列ごとの曜日。帳尻を合わせるのに使う
-    const dowOfCol = {};
-    byRow[headRow].forEach(x => {
-      const i = DOW_SET.indexOf((cells[x.ref].v || '').trim());
-      if (i >= 0) dowOfCol[x.col] = i;
-    });
-
-    // 見出しより下・次の暦より上の数値を集める。A1・A2 はここで外れる
-    const serials = [];
-    const dayCells = [];
-    Object.keys(cells).forEach(ref => {
-      const p2 = refOf_(ref);
-      if (!p2 || p2.row <= headRow || p2.row >= blockEnd) return;
-      if (dowOfCol[p2.col] === undefined) return;      // 暦の列だけを見る
-      const raw = cells[ref].v;
-      if (!/^\d+(\.\d+)?$/.test(raw)) return;
-      const n = Number(raw);
-      if (n >= XL_DAY_MIN && n <= XL_DAY_MAX) {
-        const d = xlDate_(n);
-        serials.push({ col: p2.col, row: p2.row, d: d.d, ym: d.y + '-' + pad2_(d.m) });
-      } else if (Number.isInteger(n) && n >= 1 && n <= 31) {
-        dayCells.push({ col: p2.col, row: p2.row, d: n });
-      }
-    });
-    if (!serials.length && !dayCells.length) {
-      throw new Error('日付の行が見つかりません');
-    }
-
-    // 通し番号があれば、それが年月の見当になる（いちばん多い年月）
-    let suggest = '';
-    if (serials.length) {
-      const tally = {};
-      serials.forEach(x => { tally[x.ym] = (tally[x.ym] || 0) + 1; });
-      suggest = Object.keys(tally).sort((x, y) => tally[y] - tally[x])[0];
-    }
-
+    const total = {};
+    blocks.forEach(b => Object.keys(b.yms).forEach(k => { total[k] = (total[k] || 0) + b.yms[k]; }));
+    const months = Object.keys(total).filter(k => total[k] >= 7).sort();
     return {
-      cells: cells, dowOfCol: dowOfCol, blockEnd: blockEnd,
-      // 通し番号があるならそちらを使う。無ければ 1〜31 の数値
-      days: serials.length ? serials : dayCells,
-      fromSerial: !!serials.length,
-      suggest: suggest,
-      extraBlocks: heads.length - 1
+      blocks: blocks,
+      months: months,
+      suggest: months.length ? months[months.length - 1] : ''
     };
   }
+
+  /**
+   * 取り込む年月の暦を選ぶ。
+   *
+   *   日付が通し番号の暦 … その年月の日付がいちばん多い暦。同じなら後ろ（新しく書いたほう）
+   *   1〜31 の数値の暦   … その年月で曜日の帳尻が合う暦のうち、いちばん後ろ
+   *
+   * 通し番号の暦を先に見る。数値だけの暦は、並びが同じ別の月（2026年10月と1月）でも合ってしまう。
+   * choice（暦の番号）を渡されたら、それを使う（モーダルで人が選んだとき）。
+   *
+   * @return {{block:Object, index:number, auto:boolean}|null}
+   */
+  function pickBlock_(book, ym, choice) {
+    const bs = (book && book.blocks) || [];
+    if (!bs.length) return null;
+    if (choice !== undefined && choice !== null && choice !== '' && bs[Number(choice)]) {
+      return { block: bs[Number(choice)], index: Number(choice), auto: false };
+    }
+    let best = -1, score = 0;
+    bs.forEach((b, i) => {
+      const n = (b.fromSerial && b.yms[ym]) || 0;
+      if (n > 0 && n >= score) { best = i; score = n; }
+    });
+    if (best < 0) {
+      bs.forEach((b, i) => {
+        if (b.fromSerial) return;
+        const a = alignDays_(b, ym);
+        if (a && a.fits) best = i;
+      });
+    }
+    if (best < 0) return { block: bs[0], index: 0, auto: true, none: true };   // 合う暦が無い（照合で弾く）
+    return { block: bs[best], index: best, auto: true };
+  }
+
+  /** 暦の名前。モーダルと結果に出す */
+  const blockFace_ = b => b.sheet + ' の ' + b.headRow + ' 行目から'
+    + (b.ym ? '（' + ymFace_(b.ym) + '）' : '（日にちだけ）');
 
   const pad2_ = n => String(n).padStart(2, '0');
 
@@ -9129,8 +9205,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const last = new Date(y, m, 0).getDate();
 
     // 行ごとに見て、その行が丸ごと合うときだけ採る
+    // 通し番号の日付は、その年月のものだけを見る（暦の端の前後の月は、合う・合わないに数えない）。
+    // 月を見ないと、前の月の 9/27〜30 と同じ行の 10/1〜3 まで「合わない行」として落ちる
     const rows = {};
-    scan.days.forEach(x => { (rows[x.row] = rows[x.row] || []).push(x); });
+    scan.days.forEach(x => {
+      if (x.ym && x.ym !== y + '-' + pad2_(m)) return;
+      (rows[x.row] = rows[x.row] || []).push(x);
+    });
     const good = [];
     let dropped = 0;
     Object.keys(rows).map(Number).sort((a, b) => a - b).forEach(r => {
@@ -9158,7 +9239,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 名前を拾う範囲は、その日付行の下から次の日付行の手前まで。
    */
   function buildByDay_(scan, aligned) {
-    const rows = Array.from(new Set(aligned.cells.map(x => x.row))).sort((a, b) => a - b);
+    // 次の日付行は、暦の中の全部の日付行から探す。取り込む月の行だけで探すと、
+    // 月の最後の週の下にある翌月の日付行を越えて、翌月の名前まで拾ってしまう
+    const rows = Array.from(new Set(scan.days.map(x => x.row))).sort((a, b) => a - b);
     const byDay = {};
     aligned.cells.forEach(x => {
       const next = rows.find(r => r > x.row);
@@ -9346,13 +9429,25 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       const scan = scanDoctorBook_(files);
       pendingBook = scan;
 
-      // 見当の順: ブックの通し番号 → ファイル名 → いま開いている年月
+      /**
+       * 見当の順（全部の月が入ったブックもある）:
+       *   ファイル名の年月（ブックにあれば）→ いま開いている年月（ブックにあれば）
+       *   → ブックのいちばん新しい月 → ファイル名 → いま開いている年月
+       */
       const fm = /(\d{4})\s*年\s*(\d{1,2})\s*月/.exec(String(file.name || ''));
-      const ym = scan.suggest
-        || (fm ? fm[1] + '-' + pad2_(Number(fm[2])) : '')
-        || ($('yy').value + '-' + pad2_(Number($('mm').value)));
+      const fileYm = fm ? fm[1] + '-' + pad2_(Number(fm[2])) : '';
+      const openYm = $('yy').value + '-' + pad2_(Number($('mm').value));
+      const inBook = k => scan.months.indexOf(k) >= 0;
+      const ym = (fileYm && inBook(fileYm) && fileYm) || (inBook(openYm) && openYm)
+        || scan.suggest || fileYm || openYm;
       // 手がかりを覚えておく。入力された年月と食い違ったら知らせる
-      scan.fileYm = fm ? fm[1] + '-' + pad2_(Number(fm[2])) : '';
+      scan.fileYm = fileYm;
+      // 暦が2つ以上あるときだけ、どれを読むかを選べるようにする
+      const sel = $('docAskBlock');
+      sel.innerHTML = '';
+      sel.appendChild(new Option('自動（取り込む年月に合う暦）', ''));
+      scan.blocks.forEach((b, i) => sel.appendChild(new Option(blockFace_(b), String(i))));
+      $('docAskBlockRow').hidden = scan.blocks.length < 2;
       const p2 = ym.split('-');
       $('docAskY').value = Number(p2[0]);
       $('docAskM').value = Number(p2[1]);
@@ -9374,7 +9469,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   function askPreview_() {
     if (!pendingBook) return;
     const ym = $('docAskY').value + '-' + pad2_(Number($('docAskM').value));
-    const a3 = alignDays_(pendingBook, ym);
+    const pick = pickBlock_(pendingBook, ym, $('docAskBlock').value);
+    const a3 = pick ? alignDays_(pick.block, ym) : null;
     const msg = $('docAskMsg');
 
     /**
@@ -9390,8 +9486,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const p3 = ym.split('-');
     const d1 = new Date(Number(p3[0]), Number(p3[1]) - 1, 1);
     const hints = [];
-    if (pendingBook.suggest && pendingBook.suggest !== ym) {
-      hints.push('ブックの日付は ' + ymFace_(pendingBook.suggest));
+    // ブックに無い月を指定したら知らせる（全部の月が入ったブックもあるので、1つの月とは比べない）
+    const ms = pendingBook.months || [];
+    if (ms.length && ms.indexOf(ym) < 0) {
+      hints.push('ブックにある月は ' + (ms.length > 1
+        ? ymFace_(ms[0]) + '〜' + ymFace_(ms[ms.length - 1]) + '（' + ms.length + 'か月）'
+        : ymFace_(ms[0])));
     }
     if (pendingBook.fileYm && pendingBook.fileYm !== ym) {
       hints.push('ファイル名は ' + ymFace_(pendingBook.fileYm));
@@ -9414,6 +9514,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       return;
     }
     msg.textContent = n + ' 日ぶん読めます'
+      + (pendingBook.blocks.length > 1 ? '（' + blockFace_(pick.block) + 'の暦）' : '')
       + (a3.missing.length ? '／' + a3.missing.length + ' 日は空' : '')
       + (a3.dropped ? '／曜日が合わない ' + a3.dropped + ' セルは読みません' : '');
   }
@@ -9475,7 +9576,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (!scan) return;
     const ym = $('docAskY').value + '-' + pad2_(Number($('docAskM').value));
     try {
-      const aligned = alignDays_(scan, ym);
+      const pick = pickBlock_(scan, ym, $('docAskBlock').value);
+      const block = pick ? pick.block : null;
+      const aligned = block ? alignDays_(block, ym) : null;
       if (!aligned || !aligned.fits) {
         intakeStat_('この年月では曜日と日付の帳尻が合いません'
           + (aligned ? '（合ったのは ' + aligned.cells.length + ' 日 / '
@@ -9483,7 +9586,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           + '。年月を確かめてください');
         return;
       }
-      const byDay = buildByDay_(scan, aligned);
+      const byDay = buildByDay_(block, aligned);
       if (!Object.keys(byDay).length) {
         intakeStat_('日付と医師名の組み合わせが1つも読めませんでした');
         return;
@@ -9502,9 +9605,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       if (aligned.dropped) {
         bits.push('曜日が合わない ' + aligned.dropped + ' セルは読みませんでした');
       }
-      if (scan.extraBlocks) {
-        bits.push('この下にもう ' + scan.extraBlocks + ' つ暦がありましたが、'
-          + 'いちばん上の暦だけを取り込みました');
+      if (scan.blocks.length > 1) {
+        bits.push('ブックには暦が ' + scan.blocks.length + ' つあり、' + blockFace_(block) + 'の暦を読みました');
       }
       if (r.overflow.length) {
         bits.push('医師名欄の行数（' + docRowCount_() + '）を超えた日: '
@@ -9528,6 +9630,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   ['docAskY', 'docAskM'].forEach(id => $(id).addEventListener('input', askPreview_));
+  $('docAskBlock').addEventListener('change', askPreview_);
   $('docAskGo').addEventListener('click', runIntake_);
   $('docAskNo').addEventListener('click', () => {
     pendingBook = null;
