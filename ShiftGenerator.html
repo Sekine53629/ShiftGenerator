@@ -56,7 +56,6 @@ if (location.protocol === 'file:') (function () {
   --na:          #d0cece;   /* 出られない曜日。実物と同じ灰 */
   --stamp-w:     46px;      /* スタンプの枠。見出しも中身も同じ大きさにする */
   --stamp-h:     38px;
-  --print-zoom:  1;         /* 印刷を1枚に詰める倍率。fitPrint_ が入れる */
   --accent:      #2f6f7e;
   --accent-ink:  #ffffff;
   --accent-soft: #dceaed;
@@ -109,7 +108,7 @@ body {
 /* ── 見出しとタブ ────────────────────────────────────── */
 .page-head {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px;
-  padding: 13px 18px 9px;
+  padding: 6px 18px 4px;
   background: var(--surface);
 }
 /**
@@ -119,7 +118,7 @@ body {
 .page-head h1 {
   margin: 0; font-weight: 700; letter-spacing: .02em;
   font-family: "Yu Gothic UI", "Meiryo", sans-serif;
-  font-size: 26px;
+  font-size: 22px;
 }
 /* 店名。実物のシートには無いが、複数店で使うので小さく添える */
 .storename { color: var(--ink-soft); font-size: 12px; align-self: center; }
@@ -147,8 +146,8 @@ body {
 
 /* ── 操作列 ──────────────────────────────────────────── */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
-  padding: 9px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px;
+  padding: 5px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
 }
@@ -194,17 +193,24 @@ button.primary:hover { filter: brightness(1.12); }
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
 }
-.toolbar2.hide { display: none; }
+.toolbar2.hide, .toolbar2[hidden] { display: none; }
+/* 使い方の「？」。押すと上の段（操作の説明）を開く */
+.tipsbtn { align-self: center; flex: none; width: 26px; height: 26px; padding: 0; border-radius: 50%; font-weight: 700; }
+/* 公休ノルマ・祝日の札はスタンプの段の右に置く（段を1つ減らす） */
+.palettebar .holiday-bar {
+  flex: 0 1 auto; max-width: 45%; max-height: var(--stamp-h); overflow: hidden;
+  align-self: center; align-content: center; padding: 0; background: transparent; border: 0;
+}
 /** スタンプの段。幅いっぱいを使い、ほかのボタンと同じ段に置かない */
 .palettebar {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 8px 18px;
+  padding: 5px 18px;
   /* 高さを決め打ち。群を開いても折り返さず、表を押し下げない（横にはみ出すぶんはスクロール） */
-  height: calc(var(--stamp-h) + 26px); box-sizing: border-box;
+  height: calc(var(--stamp-h) + 12px); box-sizing: border-box;
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
 }
-.palettebar > .lbl { padding-top: 9px; }
+.palettebar > .lbl { align-self: center; }
 .palettebar.hide { display: none; }
 #palette { flex: 1; min-width: 0; flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; }
 .tips {
@@ -327,6 +333,21 @@ tr.docbar .nm button {
 tr.docbar .nm button:hover { color: var(--accent); }
 /* 凡例・注記・確認事項は表の下。ページのスクロールで見る */
 .gridfoot { border-top: 1px solid var(--rule); }
+.gridfoot > summary {
+  cursor: pointer; padding: 5px 18px; font-size: 12px; font-weight: 700; color: var(--ink-soft);
+  list-style-position: inside;
+}
+.gridfoot > summary:hover { color: var(--accent); }
+.gridfoot .gfstat { font-weight: 400; margin-left: 8px; color: var(--ink-faint); }
+.gridfoot .gfstat.bad { color: var(--danger); font-weight: 700; }
+/* 薬剤師・派遣・事務の群もたためる（群ごと。見出しの行だけ残す） */
+#grid tr.gfold { display: none; }
+/* 下の集計もたためる。たたむと過不足の行だけ残す */
+.gpart.agg.folded tr.aggdetail { display: none; }
+#grid .nm button.grpfold, #grid .nm button.aggfold {
+  border: 0; background: transparent; padding: 0 4px; font: inherit; font-weight: 700; color: inherit; cursor: pointer;
+}
+#grid .nm button.grpfold:hover, #grid .nm button.aggfold:hover { color: var(--accent); }
 #grid th, #grid td {
   border-right: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft);
   height: var(--cell-h); padding: 0; text-align: center; white-space: nowrap; font-weight: 400;
@@ -408,6 +429,11 @@ th.shut, td.shut { color: var(--ink-soft) !important; }
 
 td.cell { cursor: cell; }
 td.cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+/* 入れ替え。選んだ2日と、交換できる人の2日 */
+td.cell.swapsel { box-shadow: inset 0 0 0 3px var(--accent); }
+td.cell.swapcand { box-shadow: inset 0 0 0 3px var(--warn); }
+#grid tr.swapcandrow > .nm { background: var(--warn-bg); }
+.swapstat { font-weight: 700; color: var(--ink); }
 /**
  * セルの記号。実物のシフト表は本文もすべて太字で、書体は游ゴシック
  * （docs/OUTPUT-FORMAT.md §3）。
@@ -550,6 +576,29 @@ table.mt .del {
 }
 table.mt .del:hover { color: var(--danger); background: transparent; }
 table.mt .tenure { font-size: 11px; padding: 2px 7px; margin-left: 3px; white-space: nowrap; }
+#ltxTable tr.ltxcarry td { color: var(--ink-soft); font-style: italic; }
+#ltxTable tr.ltxplan td { color: var(--ink-faint); }
+#ltxTable tr.ltxvoid td { text-decoration: line-through; color: var(--ink-faint); }
+.toast {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50;
+  max-width: min(640px, calc(100% - 32px)); padding: 10px 16px; border-radius: 6px;
+  background: var(--warn-bg); color: var(--ink); border: 1px solid var(--danger);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3); font-size: 13px; font-weight: 600;
+}
+.toast[hidden] { display: none; }
+@media print { .toast { display: none !important; } }
+.leavehow { margin: 0 0 6px; font-size: 12px; color: var(--ink-soft); }
+.leavehow > summary { cursor: pointer; width: max-content; }
+.leavehow ul { margin: 6px 0 0; padding-left: 20px; max-width: 90ch; }
+.leavehow li { margin: 2px 0; }
+.leaveh { margin: 18px 0 8px; }
+#leaveAuto td.num { text-align: right; }
+#leaveAuto td.lglabel { color: var(--ink-soft); }
+#leaveAuto tr.lgfirst td { border-top: 2px solid var(--rule); }
+#leaveAuto tbody tr:first-child td { border-top: 0; }
+/* 2行目の先頭は付与日（氏名は1行目から2行にまたがる）。1列目の固定・太線をかけない */
+#leaveAuto tr.lgsub td:first-child { position: static; border-right: 1px solid var(--rule-soft); }
+.ltxbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
 details.archived { margin-top: 22px; }
 details.archived > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 #tenureMsg.bad { color: var(--danger); }
@@ -637,7 +686,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     --outside: #f0f0f0 !important;
     --na: #d0cece !important;      /* 出られない曜日。実物と同じ灰 */
   }
-  /* 表の寸法は applyPrintSizes_（JS）が入れる。行の高さと列の幅は fitPrint_ が決める */
+  /* 表の寸法は applyPrintSizes_（JS）が入れる */
   #grid td, #grid th, .page-head, .printnote { color: #000; }
   /* 0 を薄くする画面用の見せ方は、紙では消えてしまう */
   #grid td.zero, #grid .agcol { color: #000 !important; opacity: 1 !important; }
@@ -651,7 +700,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   /* 紙では区分の段をつないで1枚の表にする。たたんだ医師欄も出す */
   .gridwrap, .gpart, .gridfoot { display: block; overflow: visible !important; max-height: none !important;
     height: auto !important; border-top: 0 !important; }   /* fitScreen_ が付けた高さも外す */
-  .gpart.doc.folded tr.docrow { display: table-row !important; }
+  .gpart.doc.folded tr.docrow, #grid tr.gfold, .gpart.agg.folded tr.aggdetail { display: table-row !important; }
   tr.docbar { display: none !important; }
   /**
    * 貼り付けをやめる。
@@ -665,19 +714,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   body { background: #fff; margin: 0; }
   .page-head { padding: 0 0 4px; }
   /* 表を1枚に収める。行の途中で改ページさせない */
-  /**
-   * 1枚に詰める。行数は人数と医師欄の行数で変わるので、
-   * 刷るたびに計算した倍率を当てる（fitPrint_）。
-   * transform: scale ではなく zoom を使う。transform は見た目だけ縮んで
-   * 版面はもとの大きさのままなので、空白の2枚目が出る。
-   */
-  body { zoom: var(--print-zoom, 1); }
   #grid { font-size: 7.5pt; }
   #grid td.cell .v { font-size: 8pt; }
   #grid td.cell .v.small { font-size: 6.5pt; }
   /**
    * 医師名・備考は、紙では文字として出す（input は隠す）。
-   * 大きさは fitPrint_ が決める。**3文字が入る大きさ**まで縮める。
+   * 大きさは --print-text-fs（既定 7pt）。
    */
   #grid td.text input { display: none !important; }
   #grid td.cell.hand .v { color: #000 !important; }   /* 紙は実物と同じ黒 */
@@ -776,6 +818,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   background: var(--agg); color: var(--ink-soft);
   border-bottom: 1px solid var(--rule-soft);
 }
+.syncbar[hidden] { display: none; }
 .syncbar.warn { background: var(--warn-bg); color: var(--ink); }
 .syncbar button { min-height: 26px; padding: 0 9px; font-size: 12px; }
 @media print { .syncbar { display: none !important; } }
@@ -783,9 +826,45 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 /* 「出力の色」タブ */
-#ocTable input[type=color] { width: 46px; height: 24px; padding: 0 2px; vertical-align: middle; }
-#ocTable td.ocnone label { white-space: nowrap; }
-#ocTable .ocnote { color: var(--ink-faint); font-size: 11px; }
+#ocTable .ocpick {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 3px 10px 3px 5px;
+  text-align: left; white-space: nowrap;
+}
+#ocTable .ocpick span { font-family: "Roboto Mono", monospace; font-size: 12px; }
+#ocTable .ocpick small { color: var(--ink-faint); font-size: 11px; }
+#ocTable .occhip { display: inline-block; width: 30px; height: 20px; border: 1px solid #888; }
+#ocTable .ocmix { display: flex; align-items: center; gap: 6px; margin: 5px 0 0 2px; font-size: 12px; white-space: nowrap; }   /* ボタンの下の段。表を横に広げない */
+#ocTable .ocmix input[type=range] { width: 120px; }
+#ocTable .ocmix output { min-width: 3em; font-family: "Roboto Mono", monospace; }
+/* 塗らない: 白地に斜線（Excel の「塗りつぶしなし」と同じ見せ方） */
+#ocTable .occhip.none { background: linear-gradient(to top right, #fff 46%, #d33 48%, #d33 52%, #fff 54%); }
+#ocTable tr.ocpalrow > td { background: var(--accent-soft); }
+.ocpal { padding: 6px 4px 4px; }
+.ocpal .ochead { font-size: 11px; color: var(--ink-soft); margin: 4px 0 4px; }
+/* Excel と同じ 10 列。1段目（基本の色）と2段目のあいだを少し空ける */
+.ocpal .ocgrid { display: grid; grid-template-columns: repeat(10, 24px); gap: 3px; width: max-content; }
+.ocpal .ocgap { grid-column: 1 / -1; height: 3px; }
+.ocpal .ocsw { width: 24px; height: 20px; min-height: 0; padding: 0; border: 1px solid #999; border-radius: 0; }
+.ocpal .ocsw:hover { outline: 2px solid var(--ink); outline-offset: 0; }
+.ocpal .ocsw.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+.ocpal .ocfoot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.ocpal .ocfoot input[type=color] { width: 46px; height: 24px; padding: 0 2px; vertical-align: middle; }
+.ocpal .ocfoot input[data-ochex] {
+  font-family: "Roboto Mono", monospace; width: 8em; padding: 3px 6px;
+  border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); color: var(--ink);
+}
+#ocTable .ocnote { color: var(--ink-faint); font-size: 11px; white-space: normal; max-width: 26em; }
+.oclayout { display: flex; flex-direction: column; gap: 16px; }
+.ocmarks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12px; }
+.ocmarks i { display: inline-block; width: 22px; height: 14px; margin-right: 5px; vertical-align: -2px; border: 1px solid #888; }
+.ocside { order: -1; }                     /* 狭い画面: 見本を表の上に */
+.ocside > h2 { margin: 0 0 3px; font-size: 14px; font-weight: 700; }
+.ocside > .lead { margin: 0 0 8px; color: var(--ink-soft); font-size: 12px; }
+@media (min-width: 1180px) {               /* 広い画面: 表の右に置き、スクロールに付いてくる */
+  .oclayout { flex-direction: row; align-items: flex-start; gap: 24px; }
+  .ocmain { flex: 1 1 auto; min-width: 0; }
+  .ocside { order: 0; flex: 0 0 auto; position: sticky; top: 10px; max-width: 46%; }
+}
 .ocprev { overflow-x: auto; }
 .ocprev table { border-collapse: collapse; background: #fff; color: #000; font-weight: 700; font-size: 12px; }
 .ocprev td { border: 1px solid #000; width: 34px; height: 22px; text-align: center; padding: 0 2px; background: #fff; color: #000; }
@@ -796,7 +875,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 /**
  * 紙（PDF）の表。Excel 出力と同じ様式・同じ色（buildPrintSheet_ が組む）。
  * 画面では出さない。印刷のときは、これ以外を全部隠す。
- * 寸法は mm で組んであるので、画面の表の倍率（--print-zoom）は掛けない。
+ * 寸法は mm で組んである（画面の表の寸法は使わない）。
  */
 #printSheet { display: none; }
 @media print {
@@ -883,6 +962,70 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   </div>
 </dialog>
 
+<!-- 有休の残日数の調整 -->
+<dialog class="modal" id="leaveAdjAsk">
+  <h2>有休の残日数を調整する</h2>
+  <p class="modal-file" id="leaveAdjWhat"></p>
+  <div class="modal-ym">
+    <label for="leaveAdjLeft">残日数</label>
+    <input type="number" id="leaveAdjLeft" min="0" max="20" step="0.5" style="width:90px">
+    <span>日</span>
+  </div>
+  <div class="modal-ym">
+    <label for="leaveAdjNote">理由</label>
+    <input type="text" id="leaveAdjNote" maxlength="60" placeholder="例: 半日休を2回・前の職場の繰り越し" style="width:260px">
+  </div>
+  <p class="modal-note" id="leaveAdjInfo"></p>
+  <p class="modal-msg" id="leaveAdjMsg"></p>
+  <div class="modal-act">
+    <button id="leaveAdjNo">やめる</button>
+    <button id="leaveAdjGo" class="primary">保存</button>
+  </div>
+</dialog>
+
+<!-- シフトで有休を押したが、引ける有休が無い -->
+<dialog class="modal" id="leaveShortAsk">
+  <h2>有休が足りません</h2>
+  <p class="modal-msg bad" id="leaveShortMsg"></p>
+  <p class="modal-note">このまま入れると、有休管理の「確かめること」と表の下の確認に出ます。</p>
+  <div class="modal-act">
+    <button id="leaveShortGo">このまま入れる</button>
+    <button id="leaveShortNo" class="primary">やめる（元に戻す）</button>
+  </div>
+</dialog>
+<!-- 止めない知らせ（順送りのとき） -->
+<div id="toast" class="toast" role="alert" hidden></div>
+
+<!-- 時間有休: 切り替え・使用 -->
+<dialog class="modal" id="ltxAsk">
+  <h2 id="ltxTitle"></h2>
+  <p class="modal-file" id="ltxWho"></p>
+  <div class="modal-ym">
+    <label for="ltxDate">日付</label>
+    <input type="date" id="ltxDate">
+  </div>
+  <div class="modal-ym" id="ltxDaysRow" hidden>
+    <label for="ltxDays">日数</label>
+    <input type="number" id="ltxDays" min="0.5" max="20" step="0.5" value="1" style="width:70px">
+    <span>日</span>
+  </div>
+  <div class="modal-ym" id="ltxHoursRow">
+    <label for="ltxHours">時間</label>
+    <input type="number" id="ltxHours" min="1" max="8" step="1" value="1" style="width:70px">
+    <span>時間</span>
+  </div>
+  <div class="modal-ym">
+    <label for="ltxNote">メモ</label>
+    <input type="text" id="ltxNote" maxlength="60" style="width:240px" placeholder="例: 通院">
+  </div>
+  <p class="modal-note" id="ltxInfo"></p>
+  <p class="modal-msg" id="ltxMsg"></p>
+  <div class="modal-act">
+    <button id="ltxNo">やめる</button>
+    <button id="ltxGo" class="primary">記録する</button>
+  </div>
+</dialog>
+
 <dialog class="modal" id="docAsk">
   <h2>医師シフトを取り込む</h2>
   <p class="modal-file" id="docAskFile"></p>
@@ -945,7 +1088,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     <div class="group">
       <span class="lbl">年月</span>
       <input type="number" id="yy" min="2000" max="2100" step="1" style="width:74px">
-      <input type="number" id="mm" min="1" max="12" step="1" style="width:54px">
+      <!-- 0 と 13 まで回せるようにして、年をまたぐ（12 → 翌年 1、1 → 前年 12）。rollYm_ が直す -->
+      <input type="number" id="mm" min="0" max="13" step="1" style="width:54px">
       <span id="finalBadge" class="finalbadge" hidden></span>
     </div>
     <div class="group">
@@ -958,6 +1102,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <button id="autoRun" class="primary">自動生成</button>
       <button id="finalBtn" title="この月のシフトを確定します。次に開いたときは翌月から始まります（確定したあとも直せます）"
         >この月を確定</button>
+      <button id="swapBtn" title="あるスタッフの2日のシフトを、その2日が逆の並びになっている人と取り替えます。押して、そのスタッフの2日を選び、相手の行を押します（Esc でやめる）"
+        aria-pressed="false">入れ替え</button>
       <button id="histNow" title="いまの状態を控えます">控えを取る</button>
       <button id="undoBtn" title="ひとつ前の控えに戻ります（Ctrl+Z）">← 戻す</button>
       <button id="redoBtn" title="戻しすぎたぶんを進めます（Ctrl+Y）">進める →</button>
@@ -970,6 +1116,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <button id="clearStaff" title="開いている月のスタッフ・派遣・事務・備考・色の印を消します。医師名欄は残ります"
         >シフトを消す（医師以外）</button>
       <span class="note" id="undoStat"></span>
+      <span class="note swapstat" id="swapStat" role="status" aria-live="polite"></span>
     </div>
     <div class="group">
       <span class="lbl">出力</span>
@@ -993,13 +1140,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     スタンプは1段目に置くと、群を開いたときに横へ伸びて
     ほかのボタンを押しやってしまう（位置が動くと押し間違える）。
   -->
-  <div class="toolbar2" id="toolbar2">
-    <div class="tips">
-      <span>セルを選んでスタンプ、または <b>1</b>–<b>9</b> キー。<b>Delete</b> で消去、方向キーで移動</span>
-      <span>スタンプは群の見出しを押すと開きます。薄いものは、いま選んでいる欄には押せません</span>
-      <span><b>Ctrl+Z</b> 戻す／<b>Ctrl+Y</b> 進める</span>
-    </div>
-  </div>
 
   <!--
     スタンプは独立した段に置く。ほかのボタンと同じ段に置くと、
@@ -1008,15 +1148,28 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   <div class="palettebar" id="palettebar">
     <span class="lbl">スタンプ</span>
     <span id="palette"></span>
+    <div class="holiday-bar" id="holidayBar"></div>
+    <button type="button" class="tipsbtn" id="tipsBtn" aria-expanded="false" aria-controls="toolbar2"
+      title="使い方（スタンプ・キー操作）">？</button>
   </div>
-
-  <div class="holiday-bar" id="holidayBar"></div>
+  <div class="toolbar2" id="toolbar2" hidden>
+    <div class="tips">
+      <span><b>−スタンプなし</b>（はじめはこれ）はセルを押しても書き換えません。<b>↻順送り</b>は押すたびに記号が進みます</span>
+      <span>セルを選んでスタンプ、または <b>1</b>–<b>9</b> キー。<b>Delete</b> で消去、方向キーで移動</span>
+      <span>スタンプは群の見出しを押すと開きます。薄いものは、いま選んでいる欄には押せません</span>
+      <span><b>Ctrl+Z</b> 戻す／<b>Ctrl+Y</b> 進める</span>
+    </div>
+  </div>
   <!--
     表は区分ごとに分けて、それぞれでスクロールする（見出し・医師・薬剤師・事務と備考・集計）。
     横のスクロールは全部の段でそろえる。紙と書き出しでは、つないで1枚の表に戻る。
   -->
   <div id="grid" class="gridwrap"></div>
-  <div class="gridfoot" id="gridFoot">
+  <!--
+    表の下（凡例・この月の注記・チェック）。たためる。たたんでもチェックの件数は見出しに出す
+  -->
+  <details class="gridfoot" id="gridFoot">
+  <summary><span class="gfttl">凡例・この月の注記・チェック</span> <span class="gfstat" id="gridFootStat"></span></summary>
 
   <div class="legend">
     <span><i style="background:#b8c6da"></i>土曜</span>
@@ -1044,7 +1197,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   </div>
 
   <div id="gridWarn" style="padding:0 18px 20px"></div>
-  </div>
+  </details>
 </section>
 
 <!-- ══ 自動生成ルール ════════════════════════════════ -->
@@ -1062,8 +1215,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <b>必要人数は医師数から計算します</b>（上の「必要な人数」の2点で決まる曲線）。
       医師が増えるほど仕事量は増えますが、薬剤師が増えるほど仕事率も上がるので、
       医師数に対する薬剤師数はだんだん同じになります。<br>
-      自動生成は、<b>まず全日に 医師数−1 人（最低2人）を置き</b>、残りの出勤を
-      「必要人数 − 埋まった人数」が大きい日から1人ずつ足して、配りきったら止めます。
+      自動生成は、<b>まず全日に医師数と同じ人数（最低2人）を置き</b>（月〜土 → 日曜の順）、残りの出勤を
+      <b>3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜</b> の順に1人ずつ足して、配りきったら止めます。
+      出勤が足りない月は、日曜から減らします。
       差が同じ日どうしでは、日曜は後回しにします（患者さんが少ないため）。<br>
       <b>年末年始</b>は、休業日（12/30〜1/3）の仕事量を前後の日に振り分けます。
       12/30〜1/1 の3日分は前の3日へ、1/2〜1/3 の2日分は後ろの2日へ。
@@ -1241,37 +1395,57 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   <h2>出力の色</h2>
   <p class="lead">
     Excel（スプレッドシート）と PDF に出すシフト表の色です。<b>画面のシフトエディタの色は変わりません。</b>
-    「塗らない」にすると白のまま出ます（見出しの文字は黒）。色の印（薬品発注担当など）は備考マスタの色が優先です。
+    色を押すと、<b>Excel の「塗りつぶしの色」と同じ並びの一覧</b>が出ます。ここから選んでおくと、
+    Excel で後から直すときも同じ位置で同じ色を見つけられます。<b>色コード</b>（#FF6D6D など）を打ち込んでも決められます。
+    一覧に無い色は、Excel の「その他の色」→「ユーザー設定」の 16 進に同じコードを入れれば同じ色になります。
+    「塗らない」にすると白のまま出ます（見出しの文字は黒）。<b>色の印</b>（パレットの「色」。薬品発注担当・入力練習など）の色も、
+    いちばん下で直せます。印の色は画面のスタンプにも出て、区分の色より優先します。
   </p>
-  <div class="mtwrap"><table class="mt" id="ocTable"></table></div>
-  <div class="mtfoot"><button id="ocResetAll">すべて既定の色に戻す</button></div>
-
-  <h2 style="margin-top:26px">見本</h2>
-  <p class="lead">この色で出ます（1週間ぶん。3日を祝日、8日を月の外、派遣の金曜を出られない日にしてあります）。</p>
-  <div class="ocprev" id="ocPreview"></div>
-  <p class="note" id="ocStat"></p>
+  <!-- 見本は色を選んでいるあいだ見えるように、広い画面では表の右に置いてスクロールに付いてこさせる。
+       狭い画面では表の上に出す -->
+  <div class="oclayout">
+    <div class="ocmain">
+      <div class="mtwrap"><table class="mt" id="ocTable"></table></div>
+      <div class="mtfoot"><button id="ocResetAll">すべて既定の色に戻す</button></div>
+    </div>
+    <aside class="ocside" aria-label="見本">
+      <h2>見本</h2>
+      <p class="lead">この色で出ます（1週間ぶん。3日を祝日、8日を月の外、派遣の金曜を出られない日にしてあります）。</p>
+      <div class="ocprev" id="ocPreview"></div>
+      <p class="note" id="ocStat"></p>
+    </aside>
+  </div>
 </div></section>
 
 <section class="panel" data-panel="leave"><div class="sheet">
   <h2>有休管理</h2>
-  <p class="lead">
-    付与した日数と、これまでに使った日数を持ちます。残日数は自動で出ます。
-    表に押した「有休」の数は右の集計列に出るので、突き合わせに使えます。
-  </p>
-  <div class="mtwrap"><table class="mt" id="mtLeave"></table></div>
-  <h3 style="margin-top:18px">入社日から計算した有休（有休管理がオンの人）</h3>
-  <p class="hint">
-    入社6か月で最初の付与、以降1年ごと。日数は労働基準法の表（週4日以下は比例付与）。
-    付与日から2年で失効します。シフト表の「有休」を古い付与から順に引きます。
-    この表を使う前に使ったぶんは、上の表に<b>その付与日の行</b>を作って「取得済み」に入れてください。
-    数えるのは、このブラウザ（またはサーバ）に読み込んだ月のシフトだけです。
-  </p>
+  <p class="lead">社員マスタで「有休管理」をオンにし、入社日を入れた人の有休を自動で数えます。シフト表で押した「有休」は下の記録に入ります。</p>
+  <details class="leavehow">
+    <summary>しくみ</summary>
+    <ul>
+      <li>付与は入社6か月後から1年ごと。日数は勤続年数から計算します（労働基準法の表。週4日以下 かつ 週30時間未満の人は比例付与）。</li>
+      <li>付与から2年で失効します。残りは失効の日に消化した扱いで記録します。使った日は失効の早い付与から引きます。</li>
+      <li>確定した月の有休を消すと「取消」が残ります（確定前の月は記録ごと消えます）。</li>
+      <li>時間有休は、1日を 8 時間に切り替えて使います。時間有休に期限はありません。</li>
+      <li>このツールより前に使った日は「使用を足す」で日付ごとに、または「残日数を直す」でまとめて入れてください。</li>
+    </ul>
+  </details>
+
+  <h3 class="leaveh">残日数</h3>
   <div class="mtwrap"><table class="mt" id="leaveAuto"></table></div>
-  <div class="mtfoot">
-    <button data-add="leave">行を追加</button>
-    <span class="note" id="leaveWarn"></span>
-    <span class="note">社員マスタで「有休管理」をオンにした人は、入社日から付与を計算します（下の表）。</span>
+  <p class="hint" id="leaveOff"></p>
+
+  <h3 class="leaveh">有休の記録</h3>
+  <div class="ltxbar">
+    <label for="ltxStaff">社員</label> <select id="ltxStaff"></select>
+    <select id="ltxSpan" aria-label="期間"><option value="1">過去1年</option><option value="3">過去3年（保存期間）</option></select>
+    <button id="ltxUse" title="シフト表に無い日の使用を足す">使用を足す</button>
+    <button id="ltxToHours" title="1日を 8 時間の時間有休に切り替える">時間有休へ切り替え</button>
+    <button id="ltxHourUse">時間有休を使う</button>
+    <button id="ltxAdj">残日数を直す…</button>
+    <span class="note" id="ltxStat"></span>
   </div>
+  <div class="mtwrap"><table class="mt" id="ltxTable"></table></div>
 </div></section>
 
 <section class="panel" data-panel="history"><div class="sheet">
@@ -1387,7 +1561,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.18.0';
+  const APP_VERSION = '1.19.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -1611,7 +1785,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         { id: 'mk2', label: '備品発注日',   color: '#ffc000',
           desc: '週1', order: 2 },
         { id: 'mk3', label: '注意',         color: '#ffff00', desc: '', order: 3 },
-        { id: 'mk4', label: '重要',         color: '#ff0000', desc: '', order: 4 }
+        { id: 'mk4', label: '重要',         color: '#ff0000', desc: '', order: 4 },
+        // 入力練習。実物のシフト表でピンクに塗っていた日。Excel の「明るい赤の背景」と同じ色
+        { id: 'mk5', label: '入力練習',     color: '#FFC7CE', desc: '', order: 5 }
       ],
 
       /**
@@ -1634,7 +1810,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         { id: 'n3', text: '会議', desc: '全体会議',     order: 3 }
       ],
       leave: staff.filter(s => s.employment === '社員')
-        .map(s => ({ id: 'l' + s.id, staffId: s.id, grantDate: '', grantDays: 10, usedDays: 0 })),
+        .map(s => ({ id: 'l' + s.id, staffId: s.id, grantDate: '', grantDays: 10 })),
       /**
        * 必要人数（下限・目安）。医師数を手がかりにした**仮の値**。
        *
@@ -1681,7 +1857,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
          * 既定は 医師3人→4人、医師7人→7人（needModel_）
          */
         needDocA: 3, needPharmA: 4, needDocB: 7, needPharmB: 7,
-        /** 土台（医師数 − 1）の最低人数。早番と遅番の2人 */
+        /** 土台（医師数と同じ）の最低人数。早番と遅番の2人 */
         baseMinPharm: 2,
         /**
          * 連休のローリング。休業が rollMinClosed 日以上続くと、その仕事量を
@@ -1721,6 +1897,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         // 曜日別下限は使わない。必要人数は診療数だけで決める
         weekdayFloor: FLOOR_OFF,
         maxConsDefault: 4, maxOffRun: 3,   // 実測は4連勤が18.7%。3日上限は現場より厳しい
+        // 連続出勤の目安。上限（4）は守る規則のまま、まず3連勤までで組み、置ききれない人だけ上限まで延ばす。0 で使わない
+        softCons: 3,
         needCloser: true,
         wishMax: 3,
         carryOver: true   // 前月末の連勤は常に引き継ぐ（seamRunOf_）。切り替えは無く、この値は読まない
@@ -1841,12 +2019,32 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     db.marks = db.marks.filter(m => m && typeof m === 'object');
     db.marks.forEach(m => { m.color = safeColor_(m.color) || ''; });
     if (!db.marks.length) db.marks = seed.marks;
+    /**
+     * あとから足した印を、前のデータにも一度だけ足す。足したことは marksAdded に記し、
+     * 利用者が消したあとに次の起動で戻ってこないようにする。同じ名前の印が既にあれば足さない。
+     */
+    if (!Array.isArray(db.marksAdded)) db.marksAdded = [];
+    const MARKS_ADDED_LATER = [                  // あとから足した色の印
+      { tag: 'practice', label: '入力練習', color: '#FFC7CE' }
+    ];
+    MARKS_ADDED_LATER.forEach(add => {
+      if (db.marksAdded.indexOf(add.tag) >= 0) return;
+      if (!db.marks.some(m => m && m.label === add.label)) {
+        const ids = new Set(db.marks.map(m => m.id));
+        let n = db.marks.length + 1;
+        while (ids.has('mk' + n)) n++;
+        const order = db.marks.reduce((a, m) => Math.max(a, Number(m.order) || 0), 0) + 1;
+        db.marks.push({ id: 'mk' + n, label: add.label, color: add.color, desc: '', order: order });
+      }
+      db.marksAdded.push(add.tag);
+    });
 
     // あとから足したルール。無ければ初期値
     db.rules = db.rules || {};
     if (!db.finalized || typeof db.finalized !== 'object') db.finalized = {};   // 月の確定（あとから足した）
     if (db.rules.docRows === undefined) db.rules.docRows = seed.rules.docRows;
     if (db.rules.busyDocN === undefined) db.rules.busyDocN = seed.rules.busyDocN;
+    if (db.rules.softCons === undefined) db.rules.softCons = seed.rules.softCons;
     if (db.rules.minOnDuty === undefined) db.rules.minOnDuty = seed.rules.minOnDuty;
     if (db.rules.lateMinN === undefined) db.rules.lateMinN = seed.rules.lateMinN;
     if (db.rules.reqPlus === undefined) db.rules.reqPlus = seed.rules.reqPlus;
@@ -1863,6 +2061,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (typeof db.memoDefault !== 'string') db.memoDefault = seed.memoDefault;
     // 出力の色（あとから足した）。無い項目は既定の色になる
     if (!db.outColors || typeof db.outColors !== 'object' || Array.isArray(db.outColors)) db.outColors = {};
+    // 有休の取引票（あとから足した）。前の形の付与の行（取得済み・調整）と時間有休を移す
+    if (!Array.isArray(db.leaveTx)) db.leaveTx = [];
+    migrateLeaveLedger_(db);
     fixOldValues_(db, seed);
     // 真偽値ひとつだった頃の設定を3択に移す
     if (db.rules.floorOnlyWhenNoDoctor !== undefined) {
@@ -2267,7 +2468,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     }
     syncActiveStore();
     openDefaultMonth_();
-    Object.keys(COLS).forEach(renderMaster);
+    renderAllMasters_();
     renderRules();
     renderMemoDefault();
     refreshAll();
@@ -2604,8 +2805,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     groups.forEach((g, i) => {
       // 先頭の群（薬剤師）は日付の再掲に見出しを載せる。帯を1本減らす
       const sec = g.role === 'clerk' ? 'cl' : 'ph';
-      if (i === 0) push({ kind: 'repeat', label: g.label, sec: sec });
-      else push({ kind: 'band', label: g.label, sec: sec });
+      // 見出しの行に群（role）を持たせる。押すとその群をたたむ
+      if (i === 0) push({ kind: 'repeat', label: g.label, sec: sec, role: g.role });
+      else push({ kind: 'band', label: g.label, sec: sec, role: g.role });
       live.filter(g.pick).forEach(s =>
         push({ kind: 'staff', role: g.role, key: s.id, label: s.name, staff: s, sec: sec }));
     });
@@ -2642,11 +2844,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   /**
    * いま選んでいるスタンプ。{ kind, value }
-   * kind は shift / doctor / note / clear。押せる行が kind ごとに決まっていて、
+   * kind は shift / doctor / note / mark / clear と、道具の cycle（順送り）/ none（スタンプなし）。
+   * 既定はスタンプなし（開いてすぐセルを押しても書き換えない）。押せる行が kind ごとに決まっていて、
    * シフト記号が医師名欄に落ちると 医師数(診)（あの欄の COUNTA）が増え、
    * 必要人数がその月ぶん丸ごと狂う。ここは緩められない。
    */
-  let stamp = { kind: 'shift', value: '○' };
+  let stamp = { kind: 'none', value: '' };
   let sel = null;
   let days = [];
   const $ = id => document.getElementById(id);
@@ -2901,6 +3104,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     const wrap = $('grid');
     sel = null;              // 表を作り直すと選択の行番号が合わなくなる
+    if (swapMode) endSwap_('');   // 入れ替えの途中なら、やめる（行番号が変わる）
     // 作り直してもスクロールの位置は保つ（月の切り替え以外で表が動かないように）
     const keep = {};
     wrap.querySelectorAll('.gpart').forEach(p => {
@@ -2924,7 +3128,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     doc.classList.toggle('folded', docFolded_());
     // 薬剤師と事務（備考も）は1つの段。続けてスクロールできるように
     part('st', t => t.appendChild(buildBody(r => r.sec === 'ph' || r.sec === 'cl')));
-    part('agg', t => t.appendChild(buildBody(r => r.sec === 'agg')));
+    const agg = part('agg', t => t.appendChild(buildBody(r => r.sec === 'agg')));
+    agg.classList.toggle('folded', aggFolded_());
     // 横のスクロールを全部の段でそろえる
     const parts = Array.from(wrap.querySelectorAll('.gpart'));
     parts.forEach(p => p.addEventListener('scroll', () => {
@@ -2941,10 +3146,69 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /** 医師の段をたたんでいるか（この端末だけの見え方。保存できなくても動く） */
+  /** この端末だけの見え方の印（たたんだ・開いた）。'1' / '0' で持つ。保存できなくても既定で動く */
+  function viewFlag_(key, def) {
+    try { const v = localStorage.getItem(key); return v === null ? def : v === '1'; } catch (e) { return def; }
+  }
+  function setViewFlag_(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { /* 見え方だけ */ }
+  }
+
   const DOC_FOLD_KEY = 'shiftgrid.docFolded';
-  function docFolded_() {
-    // はじめはたたむ。医師シフトは取り込むもので、表の上では人数さえ分かればよい
-    try { return localStorage.getItem(DOC_FOLD_KEY) !== '0'; } catch (e) { return true; }
+  // はじめはたたむ。医師シフトは取り込むもので、表の上では人数さえ分かればよい
+  const docFolded_ = () => viewFlag_(DOC_FOLD_KEY, true);
+  /** 医師の段の先頭行に置く、たたむ・開くボタン */
+  function docFoldButton_() {
+    const folded = docFolded_();
+    const b = el('button', 'docfold', (folded ? '▸' : '▾') + ' 医師の人数');
+    b.type = 'button';
+    b.title = folded ? '医師名欄を開く' : '医師名欄をたたむ（人数の行だけ残す）';
+    return b;
+  }
+
+  /**
+   * 下の集計をたたんでいるか（この端末だけの見え方）。たたむと過不足の行だけ残す。
+   * はじめは開いておく（医師数・出勤数は表を作るときに見るので）。
+   */
+  const AGG_FOLD_KEY = 'shiftgrid.aggFolded';
+  const aggFolded_ = () => viewFlag_(AGG_FOLD_KEY, false);
+  /** 過不足の行の氏名欄に置く、たたむ・開くボタン */
+  function aggFoldButton_() {
+    const folded = aggFolded_();
+    const b = el('button', 'aggfold', (folded ? '▸ ' : '▾ ') + '過不足');
+    b.type = 'button';
+    b.title = folded ? '医師数・出勤数の行を開く' : '医師数・出勤数の行をたたむ（過不足だけ残す）';
+    return b;
+  }
+
+  /**
+   * 薬剤師・派遣薬剤師・事務の群をたたんでいるか（群ごと。この端末だけの見え方）。
+   * はじめは全部開いておく（ふだん打つのはここなので）。
+   */
+  const GROUP_FOLD_KEY = 'shiftgrid.groupFolded';
+  function groupFolded_() {
+    try {
+      const v = JSON.parse(localStorage.getItem(GROUP_FOLD_KEY) || '[]');
+      return new Set(Array.isArray(v) ? v : []);
+    } catch (e) { return new Set(); }
+  }
+  function setGroupFolded_(role, folded) {
+    const s = groupFolded_();
+    if (folded) s.add(role); else s.delete(role);
+    try { localStorage.setItem(GROUP_FOLD_KEY, JSON.stringify(Array.from(s))); } catch (e) { /* 見え方だけ */ }
+  }
+  /** 群の見出しの氏名欄。群があれば、たたむ・開くボタンにする（人数も出す） */
+  function groupHeadCell_(tag, row) {
+    const cell = el(tag, 'nm');
+    if (!row.role) { cell.textContent = row.label || ''; return cell; }
+    const n = ROWS.filter(r => r.kind === 'staff' && r.role === row.role).length;
+    const folded = groupFolded_().has(row.role);
+    const b = el('button', 'grpfold', (folded ? '▸ ' : '▾ ') + row.label + (folded ? '（' + n + '人）' : ''));
+    b.type = 'button';
+    b.dataset.role = row.role;
+    b.title = folded ? row.label + 'の行を開く' : row.label + 'の行をたたむ（見出しだけ残す）';
+    cell.appendChild(b);
+    return cell;
   }
 
   /**
@@ -2955,9 +3219,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const body = el('tbody');
     const tr = el('tr', 'docbar');
     const nm = el('td', 'nm');
-    const b = el('button', 'docfold', (docFolded_() ? '▸' : '▾') + ' 医師の人数');
-    b.title = docFolded_() ? '医師名欄を開く' : '医師名欄をたたむ（人数の行だけ残す）';
-    nm.appendChild(b);
+    nm.appendChild(docFoldButton_());
     tr.appendChild(nm);
     for (let c = 0; c < DAY_COLS; c++) {
       const cell = el('td', 'day num' + (days[c] && days[c].inMonth ? '' : ' outside'));
@@ -2980,9 +3242,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (!panel || !wrap || !panel.classList.contains('on')) return;
     // 幅の狭い画面（スマホ）では高さを決めず、ページごとスクロールする
     if (window.innerWidth < 760) { wrap.style.height = ''; return; }
-    // ページの先頭にいるとき、表の下端が窓の下端にそろう高さ
+    // ページの先頭にいるとき、表の下の見出し（凡例・注記・チェック）の下端が窓の下端にそろう高さ。
+    // 見出しを開かない限り、ページ全体のスクロールは要らない
     const top = wrap.getBoundingClientRect().top + window.scrollY;
-    wrap.style.height = Math.max(320, window.innerHeight - top - 6) + 'px';
+    const sum = document.querySelector('#gridFoot > summary');
+    const footH = sum ? Math.ceil(sum.getBoundingClientRect().height) + 1 : 0;   // 1 は上の線
+    wrap.style.height = Math.max(320, window.innerHeight - top - footH - 2) + 'px';
   }
 
   function headCells(tag, dayText) {
@@ -3041,7 +3306,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
       if (row.kind === 'band') {
         tr.className = 'bandrow';
-        tr.appendChild(el('td', 'nm', row.label));
+        tr.appendChild(groupHeadCell_('td', row));
         const filler = el('td');
         filler.colSpan = DAY_COLS + AGG_COLS.length;
         tr.appendChild(filler);
@@ -3051,7 +3316,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
       if (row.kind === 'repeat') {
         tr.className = 'r-repeat';
-        tr.appendChild(el('th', 'nm', row.label || ''));
+        tr.appendChild(groupHeadCell_('th', row));
         headCells('th', d => String(d.day)).forEach(c => tr.appendChild(c));
         AGG_COLS.forEach((a, i) =>
           tr.appendChild(el('th', 'agcol' + (i === 0 ? ' first' : ''), aggHead_(a))));
@@ -3059,8 +3324,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         return;
       }
 
-      if (row.kind === 'agg') tr.className = 'aggrow';
-      const nameCell = el('td', 'nm', row.label);
+      if (row.kind === 'agg') tr.className = 'aggrow' + (row.calc === 'short' ? '' : ' aggdetail');
+      if (row.kind === 'staff') {
+        tr.dataset.role = row.role;
+        if (groupFolded_().has(row.role)) tr.classList.add('gfold');
+      }
+      const nameCell = el('td', 'nm', row.kind === 'agg' && row.calc === 'short' ? '' : row.label);
+      if (row.kind === 'agg' && row.calc === 'short') nameCell.appendChild(aggFoldButton_());
       if (row.staff) nameCell.title = staffTip(row.staff);
       tr.appendChild(nameCell);
 
@@ -3162,7 +3432,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   /** そのスタンプをその行に押してよいか。押せない理由も返す */
   function stampRejectReason(row, st) {
     if (!row || !isInput(row)) return '書き込めない行です';
-    if (st.kind === 'clear') return '';
+    if (st.kind === 'clear' || st.kind === 'none') return '';   // スタンプなしは、どこでも「選ぶだけ」
+    if (st.kind === 'cycle' && row.kind !== 'staff')
+      return '順送りはスタッフ欄にだけ効きます';
     if (st.kind === 'shift'  && row.kind !== 'staff')
       return 'シフト記号はスタッフ欄にしか押せません';
     if (st.kind === 'doctor' && row.kind !== 'doctor')
@@ -3175,9 +3447,173 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
   const canStamp = (row, st) => !stampRejectReason(row, st);
 
+  /**
+   * 順送りの次の記号。空 → シフトパターンの記号（並び順）→ 空 … と進む。
+   * いまの値が一覧に無ければ（手で打った文字など）、最初の記号から。**配列を受けて文字を返すだけ。**
+   * @param {string} cur いまの値
+   * @param {Array<string>} syms シフトパターンの記号（並び順）
+   */
+  function cycleNext_(cur, syms) {
+    const list = [''].concat(syms.filter(v => v));
+    if (list.length < 2) return '';
+    const at = list.indexOf(cur || '');
+    return at < 0 ? list[1] : list[(at + 1) % list.length];
+  }
+
+  /**
+   * 入れ替えの相手。row の a日・b日 が (va, vb) のとき、同じ職種（薬剤師 / 事務）で a日 が vb・b日 が va の人。
+   * **相手の a日・b日 のどちらかが手で入れたセル（locked）なら外す**（希望休などを人に移さない）。
+   * **配列を受けて配列を返すだけ**（行の index の配列）。get(row, c) で値を読み、locked(row, c) で手入力かを見る。
+   */
+  function swapCandidates_(rows, get, r, a, b, locked) {
+    const x = rows[r];
+    if (!x || x.kind !== 'staff') return [];
+    const va = get(x, a), vb = get(x, b);
+    if (va === vb) return [];
+    const clerk = rw => rw.role === 'clerk';
+    return rows.filter(y => y !== x && y.kind === 'staff' && clerk(y) === clerk(x)
+      && get(y, a) === vb && get(y, b) === va
+      && !(locked && (locked(y, a) || locked(y, b)))).map(y => y.index);
+  }
+
+  /*
+   * 手動の入れ替え。「入れ替え」を押す → あるスタッフの2日を押す → 色の付いた相手の行を押す。
+   * 2人の その2日 を取り替える（日ごとの人数・2人の出勤数は変わらない）。直前に控えを取るので「← 戻す」で戻せる。
+   * 入れ替えたセルは手で入れた扱い（自動生成で書き換えない）。
+   */
+  let swapMode = null;     // { r, a, b, cands } a・b は列。b と cands は2日目を選んでから
+  const swapStat_ = t => { const e = $('swapStat'); if (e) e.textContent = t; };
+  function swapPaint_() {
+    document.querySelectorAll('#grid .swapsel, #grid .swapcand').forEach(e => e.classList.remove('swapsel', 'swapcand'));
+    document.querySelectorAll('#grid tr.swapcandrow').forEach(e => e.classList.remove('swapcandrow'));
+    if (!swapMode) return;
+    const mark = (r, c, cls) => { const e = cellAt(r, c); if (e) e.classList.add(cls); };
+    [swapMode.a, swapMode.b].forEach(c => { if (c !== undefined) mark(swapMode.r, c, 'swapsel'); });
+    (swapMode.cands || []).forEach(r => {
+      mark(r, swapMode.a, 'swapcand');
+      mark(r, swapMode.b, 'swapcand');
+      const tr = document.querySelector('#grid tr[data-row="' + r + '"]');
+      if (tr) tr.classList.add('swapcandrow');
+    });
+  }
+  function startSwap_() {
+    swapMode = { r: -1 };
+    $('swapBtn').classList.add('on');
+    $('swapBtn').setAttribute('aria-pressed', 'true');
+    swapStat_('入れ替え: スタッフの1日目を押してください（Esc でやめる）');
+    swapPaint_();
+  }
+  function endSwap_(msg) {
+    swapMode = null;
+    const b = $('swapBtn');
+    if (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
+    swapPaint_();
+    swapStat_(msg || '');
+  }
+  const dayLabel_ = c => (days[c] ? days[c].day + '日' : '');
+  /**
+   * 契約で決まっている日。希望休と同じく入れ替えの対象にしない。
+   * 休業日・その人が出られない曜日（契約上の休み）・必ず出る曜日（契約上の出勤。固定曜日の人は全部の日がどちらか）
+   */
+  function contractDay_(row, c) {
+    const s = row.staff, d = days[c];
+    if (!s || !d) return false;
+    if (!d.open) return true;
+    if (s.availDow && !s.availDow[d.dow]) return true;
+    return !!(s.fixedDow && s.fixedDow[d.dow]);
+  }
+  const symLabel_ = v => (v ? '「' + v + '」' : '「空欄」');
+  /** 入れ替え中に表のセルを押した。押したものを使ったら true（スタンプは押さない） */
+  function swapClick_(r, c) {
+    if (!swapMode) return false;
+    const row = ROWS[r];
+    if (!row || row.kind !== 'staff' || !days[c] || !days[c].inMonth) {
+      swapStat_('入れ替えはスタッフの欄だけです。スタッフの日を押してください（Esc でやめる）');
+      return true;
+    }
+    // 自分の側の日を選ぶところで、手で入れた休み（希望休・有休など）と、契約で決まっている日は選ばせない。
+    // 相手に移ってしまう（契約の休みの日に出勤させる・必ず出る日を休ませることになる）
+    const choosingOwn = swapMode.r < 0 || swapMode.b === undefined || !swapMode.cands.length;
+    if (choosingOwn && isHand(row, c) && !isWork(get(row, c))) {
+      swapStat_('入れ替え: ' + row.label + ' の ' + dayLabel_(c) + symLabel_(get(row, c))
+        + ' は手で入れた休みなので入れ替えできません。別の日を押してください（Esc でやめる）');
+      return true;
+    }
+    if (choosingOwn && contractDay_(row, c)) {
+      swapStat_('入れ替え: ' + row.label + ' の ' + dayLabel_(c) + symLabel_(get(row, c))
+        + ' は契約で決まっている日（出られない曜日・必ず出る曜日・休業日）なので入れ替えできません。別の日を押してください（Esc でやめる）');
+      return true;
+    }
+    // 1日目
+    if (swapMode.r < 0 || swapMode.b !== undefined && !swapMode.cands.length || (swapMode.b === undefined && r !== swapMode.r)) {
+      swapMode = { r: r, a: c };
+      swapStat_('入れ替え: ' + row.label + ' の ' + dayLabel_(c) + symLabel_(get(row, c)) + '。同じ人のもう1日を押してください');
+      swapPaint_();
+      return true;
+    }
+    // 2日目（同じ人）
+    if (swapMode.b === undefined) {
+      if (c === swapMode.a) return true;
+      const a = swapMode.a;
+      const va = get(row, a), vb = get(row, c);
+      if (va === vb) {
+        swapStat_('入れ替え: ' + dayLabel_(a) + 'と' + dayLabel_(c) + 'は同じ' + symLabel_(va) + 'です。別の日を押してください');
+        return true;
+      }
+      // 相手の2日に、手で入れたセルか契約で決まっている日がある人は外す
+      const cands = swapCandidates_(ROWS, get, r, a, c, (y, d) => isHand(y, d) || contractDay_(y, d));
+      swapMode = { r: r, a: a, b: c, cands: cands };
+      swapPaint_();
+      if (!cands.length) {
+        swapStat_('入れ替え: ' + dayLabel_(a) + 'が' + symLabel_(vb) + '・' + dayLabel_(c) + 'が' + symLabel_(va)
+          + ' の人がいません（手で入れた日の人は外しています）。別の日を押すと選び直します（Esc でやめる）');
+      } else {
+        swapStat_('入れ替え: ' + dayLabel_(a) + symLabel_(va) + ' ⇄ ' + dayLabel_(c) + symLabel_(vb) + '。相手の行を押してください（'
+          + cands.map(i => ROWS[i].label).join('・') + '）');
+      }
+      return true;
+    }
+    // 相手
+    if (swapMode.cands.indexOf(r) < 0) {
+      swapStat_('入れ替え: 交換できるのは色の付いた行の人です（' + swapMode.cands.map(i => ROWS[i].label).join('・') + '）。Esc でやめる');
+      return true;
+    }
+    doSwap_(swapMode.r, r, swapMode.a, swapMode.b);
+    return true;
+  }
+  /** x の a日・b日 と、y の a日・b日 を取り替える */
+  function doSwap_(rx, ry, a, b) {
+    const x = ROWS[rx], y = ROWS[ry];
+    try {
+      snapshot_('入れ替えの直前');
+      const warn0 = lastWarnCount;
+      const vxa = get(x, a), vxb = get(x, b), vya = get(y, a), vyb = get(y, b);
+      [[x, a, vxb], [x, b, vxa], [y, a, vyb], [y, b, vya]].forEach(([row, c, v]) => {
+        setV(row, c, v);
+        if (v) values.set(handKey(row, c), '1'); else values.delete(handKey(row, c));
+      });
+      markEdited_();
+      [[x, a], [x, b], [y, a], [y, b]].forEach(([row, c]) => paintCell(row, c));
+      recalc();
+      renderHistory();
+      const more = lastWarnCount > warn0 ? '。表の下のチェックが ' + (lastWarnCount - warn0) + ' 件増えました' : '';
+      endSwap_(x.label + ' と ' + y.label + ' の ' + dayLabel_(a) + '・' + dayLabel_(b) + ' を入れ替えました（← 戻す で戻せます）' + more);
+    } catch (e) {
+      console.error('[doSwap_] ' + e.message + ' / ' + e.stack);
+      endSwap_('入れ替えできませんでした: ' + e.message);
+    }
+  }
+
   function applyStamp(r, c, st) {
     const row = ROWS[r];
+    if (st.kind === 'none') return false;            // スタンプなし: 選ぶだけ
     if (!canStamp(row, st)) return false;
+    const fromCycle = st.kind === 'cycle';
+    if (fromCycle) {
+      // 順送り: 記号だけを進める。色の印は消さない。手で入れた印は付け直す（緑の文字・自動生成は触らない）
+      st = { kind: 'shift', value: cycleNext_(get(row, c), byOrder(DB.patterns).map(p => p.sym)) };
+    }
+    const prev = get(row, c), prevHand = isHand(row, c);   // 有休が足りないときに戻すため
     markEdited_();
     if (st.kind === 'mark') {
       // 記号は消さない。背景だけを塗る。同じ色をもう一度押すと外す
@@ -3198,7 +3634,81 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     }
     paintCell(row, c);
     recalc();
+    if (st.kind === 'shift') warnLeaveShort_(row, c, prev, prevHand, fromCycle);
     return true;
+  }
+
+  /** 有休の記号（パターンマスタで呼び名が「有休」、または記号が「有休」のもの） */
+  function paidSyms_() {
+    return DB.patterns.filter(p => !p.work && (p.label === '有休' || p.sym === '有休')).map(p => p.sym);
+  }
+
+  /**
+   * 「有休」を入れた日に、引ける有休が無いか（有休管理がオンで入社日のある人だけ）。
+   * 無ければ理由の文を返す。あれば ''。**表の値を入れたあとに呼ぶ**（台帳は表から数える）。
+   */
+  function leaveShortReason_(row, c) {
+    if (!row || row.kind !== 'staff' || !row.staff || !days[c] || !days[c].inMonth) return '';
+    if (paidSyms_().indexOf(get(row, c)) < 0) return '';
+    if (!row.staff.leaveManaged || !normYmd_(row.staff.hireDate)) return '';
+    const key = cellKey(row, c);
+    const t = (DB.leaveTx || []).find(x => x.cellKey === key && x.kind === 'use' && !x.cancelledBy);
+    if (!t || (t.grantId && (DB.leave || []).some(g => g.id === t.grantId))) return '';
+    const date = t.date;
+    const granted = (DB.leave || []).some(g => g.staffId === row.staff.id && g.grantDate && g.expireDate
+      && g.grantDate <= date && date < g.expireDate);
+    if (!granted) {
+      // 次の付与は入社日から計算する（付与票にまだ行が無くても出せる）
+      const next = leaveGrants_(normYmd_(row.staff.hireDate), row.staff.weekDays, addMonthsYmd_(date, 13), row.staff.weekHours)
+        .find(g => g.date > date);
+      return '付与前です' + (next ? '（次の付与は ' + next.date + '・' + next.days + ' 日）' : '');
+    }
+    return 'この日に使える有休を使い切っています（調整は有休管理タブ）';
+  }
+
+  /**
+   * 有休が足りない日に「有休」を押したら知らせる。
+   *   スタンプ・数字キー … 確認する。「やめる」で元の記号に戻す
+   *   順送り            … 止めない（有休を通り過ぎて次の記号へ進むことが多い）。画面の下に知らせるだけ
+   */
+  let leaveShortUndo = null;
+  function warnLeaveShort_(row, c, prev, prevHand, fromCycle) {
+    if (get(row, c) === prev) return;
+    const why = leaveShortReason_(row, c);
+    if (!why) return;
+    const what = (row.staff.name || '(氏名なし)') + ' の ' + curMonth_ + '/' + days[c].day + ' は、引ける有休がありません。' + why;
+    if (fromCycle) { toast_(what); return; }
+    const dlg = $('leaveShortAsk');
+    if (!dlg || typeof dlg.showModal !== 'function') { toast_(what); return; }
+    leaveShortUndo = () => {
+      setV(row, c, prev);
+      if (prevHand) values.set(handKey(row, c), '1'); else values.delete(handKey(row, c));
+      paintCell(row, c);
+      recalc();
+    };
+    $('leaveShortMsg').textContent = what;
+    dlg.showModal();
+    $('leaveShortNo').focus();                        // 既定は「やめる」（うっかり Enter で入らない）
+  }
+  $('leaveShortNo').addEventListener('click', () => {
+    const undo = leaveShortUndo;
+    leaveShortUndo = null;
+    $('leaveShortAsk').close();
+    if (undo) undo();
+  });
+  $('leaveShortGo').addEventListener('click', () => { leaveShortUndo = null; $('leaveShortAsk').close(); });
+  // Esc で閉じたら「やめる」と同じ（入れたつもりのない有休を残さない）
+  $('leaveShortAsk').addEventListener('cancel', ev => { ev.preventDefault(); $('leaveShortNo').click(); });
+
+  /** 画面の下に数秒出す知らせ（止めない） */
+  let toastTimer = 0;
+  function toast_(text) {
+    const t = $('toast');
+    if (!t) return;
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 6000);
   }
 
   /**
@@ -3351,8 +3861,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     });
 
     saveCells();     // 表が変わるたびに必ずここを通る。保存の唯一の出口
+    syncLeaveLedger_();   // 有休の帳簿（取引票）をシフト表に合わせる。「有休」を押した・消したのを記録する
     renderPrintNote();
-    fitPrint_();     // 行数が変わると1枚に入るかも変わる
+    /**
+     * ここで表のスクロール位置を動かす処理（前は画面の表を紙の寸法で測り直していた）を呼ばない。
+     * 測る前にスクロールを先頭に戻すので、**スタンプを押すたびに表が先頭へ飛んでいた。**
+     * 紙（PDF）は印刷専用の表（buildPrintSheet_）で組む。
+     */
     checkRules();
   }
 
@@ -3479,41 +3994,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   const PRINT_SIZES = {
     '--cell-w': '26px', '--cell-h': '15px', '--name-w': '80px', '--agg-w': '32px'
   };
-  /** fitPrint_ が計算した寸法。無ければ PRINT_SIZES を使う */
-  const PRINT_FITTED = { '--cell-w': '--print-cell-w', '--cell-h': '--print-cell-h' };
   (function applyPrintSizes_() {
-    const body = Object.keys(PRINT_SIZES).map(k => k + ':' + (PRINT_FITTED[k]
-      ? 'var(' + PRINT_FITTED[k] + ',' + PRINT_SIZES[k] + ')'
-      : PRINT_SIZES[k])).join(';');
+    const body = Object.keys(PRINT_SIZES).map(k => k + ':' + PRINT_SIZES[k]).join(';');
     const st = document.createElement('style');
     st.textContent = '@media print{:root{' + body + '}}';
     document.head.appendChild(st);
   })();
-
-  const PRINT_W = 1100;
-  const PRINT_H = 650;
-  /** これより小さいと紙で読めない。下回るときは1枚に収めるのを諦める */
-  const PRINT_MIN_ZOOM = 0.5;
-  /** 行の高さの下限。これ以下に詰めると記号が潰れる */
-  const PRINT_CELL_MIN = 9;
-  /** 医師名・備考の字の大きさ。下限と上限（px）。7pt = 9.33px */
-  const PRINT_TEXT_MIN = 6, PRINT_TEXT_MAX = 9.33;
-
-  /**
-   * 文字列の幅を「全角いくつぶん」で見積もる。
-   * 全角（漢字・かな・全角記号）は1、半角は0.5として数える。
-   */
-  function widthEm_(t) {
-    let n = 0;
-    for (let i = 0; i < t.length; i++) {
-      const c = t.charCodeAt(i);
-      // 半角（ASCII・ラテン・半角カナ）は 0.5、それ以外は全角として 1
-      const half = (c >= 0x20 && c <= 0x00FF) || (c >= 0xFF61 && c <= 0xFF9F);
-      n += half ? 0.5 : 1;
-    }
-    return n;
-  }
-  let printZoom = 1;
 
   /**
    * 印刷用の指定を、測るあいだだけ画面に着せる。
@@ -3553,130 +4039,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     root.classList.toggle('measuring', !!on);
   }
 
-  /**
-   * 印刷の倍率と行の高さを決める。
-   *
-   * **倍率は横幅に合わせる。** 高さで倍率を下げると幅も一緒に痩せて、
-   * 紙の右側が大きく余る。以前はそうなっていた（15人で0.75倍、右に25%の余白）。
-   *
-   * 高さがはみ出すぶんは、倍率ではなく**行の高さ**で詰める。
-   * 行を詰めても横幅は変わらないので、表は紙いっぱいのまま入る。
-   *
-   * 行を詰めきれないほど行数が多いときだけ、最後に倍率を下げる。
-   */
-  function fitPrint_() {
-    const grid = $('grid');
-    const head = document.querySelector('.page-head');
-    const note = document.querySelector('.printnote');
-    if (!grid) return 1;
-
-    const root = document.documentElement;
-    const set = o => Object.keys(o).forEach(k => root.style.setProperty(k, o[k]));
-    const clear = () => Object.keys(PRINT_SIZES)
-      .forEach(k => root.style.removeProperty(k));
-
-    // スクロール位置を戻してから測る。ずれたまま刷ると見出しが表の中に降りる
-    grid.querySelectorAll('.gpart').forEach(p => { p.scrollLeft = 0; p.scrollTop = 0; });
-
-    // 印刷の見た目にしてから測る。画面の寸法で測ると高く見積もりすぎる
-    printMetrics_(true);
-    set(PRINT_SIZES);
-    const w = grid.scrollWidth;
-    const gridH = grid.scrollHeight;
-    const other = (head ? head.offsetHeight : 0)
-      + (note ? note.offsetHeight : 0) + 12;   // 12px は行間の余裕
-    if (!w || !gridH) { clear(); printMetrics_(false); return 1; }
-
-    // 1. まず横幅に合わせる
-    let z = Math.min(1, PRINT_W / w);
-
-    // 2. その倍率で入る高さに、行を詰めて合わせる。
-    //    表の高さは行の高さに比例しない（罫線、文字の入る見出し行、最小高さ）。
-    //    比で当てると外すので、2点測って直線に当てはめる。
-    const baseH = parseFloat(PRINT_SIZES['--cell-h']);
-    const room = PRINT_H / z - other;             // 表に使える高さ（倍率をかける前）
-    let cellH = baseH;
-    if (gridH > room) {
-      set({ '--cell-h': PRINT_CELL_MIN + 'px' });
-      const minGridH = grid.scrollHeight;
-      // h = a*cellH + b
-      const a = (gridH - minGridH) / (baseH - PRINT_CELL_MIN);
-      cellH = a > 0
-        ? (room - (minGridH - a * PRINT_CELL_MIN)) / a
-        : PRINT_CELL_MIN;
-      cellH = Math.max(PRINT_CELL_MIN, Math.min(baseH, cellH));
-      set({ '--cell-h': cellH.toFixed(2) + 'px' });
-      // 当てはめの誤差を1回だけ詰める（小数の丸めで1〜2px はみ出す）
-      for (let i = 0; i < 4 && grid.scrollHeight > room && cellH > PRINT_CELL_MIN; i++) {
-        cellH = Math.max(PRINT_CELL_MIN, cellH - 0.5);
-        set({ '--cell-h': cellH.toFixed(2) + 'px' });
-      }
-    }
-    const fitH = grid.scrollHeight + other;
-
-    // 3. 行を詰めても入らないときだけ倍率を下げる
-    if (fitH * z > PRINT_H) z = Math.min(z, PRINT_H / fitH);
-    z = Math.max(PRINT_MIN_ZOOM, z);
-
-    // 4. 高さのために倍率を下げたぶん、日付の列を広げて横幅を使い切る。
-    //    列の幅は高さに響かない（記号は1〜2文字）ので、ここは広げるだけ得。
-    const baseW = parseFloat(PRINT_SIZES['--cell-w']);
-    let cellW = baseW;
-    if (z < 1 && w * z < PRINT_W) {
-      set({ '--cell-w': (baseW + 10) + 'px' });
-      const wideW = grid.scrollWidth;
-      const a = (wideW - w) / 10;                 // 列1pxあたり表が何px広がるか
-      if (a > 0) {
-        cellW = Math.max(baseW, Math.min(baseW * 2, baseW + (PRINT_W / z - w) / a));
-        set({ '--cell-w': cellW.toFixed(2) + 'px' });
-        // 当てはめの誤差で紙からはみ出さないよう、狭める側だけ詰める
-        for (let i = 0; i < 6 && grid.scrollWidth * z > PRINT_W && cellW > baseW; i++) {
-          cellW = Math.max(baseW, cellW - 0.5);
-          set({ '--cell-w': cellW.toFixed(2) + 'px' });
-        }
-      } else {
-        cellW = baseW;
-      }
-    }
-    clear();
-    printMetrics_(false);
-
-    /**
-     * 医師名・備考の字の大きさ。**3文字が入るところまで縮める。**
-     *
-     * 全角1文字はだいたい font-size ぶんの幅を取る。字間を少し詰めてあるので
-     * 3文字で 2.9em ほど。列の幅（罫線と余白を引いたぶん）に収まる大きさを出す。
-     * 縮めすぎると紙で読めないので下限を置く。4文字以上の名前は入りきらない
-     * ——医師マスタの略称を短くするか、医師名欄の使い方を決めること。
-     */
-    const inner = Math.max(6, cellW - 2);
-    const textFs = Math.max(PRINT_TEXT_MIN,
-      Math.min(PRINT_TEXT_MAX, inner / (3 * 0.97)));
-
-    /**
-     * 長い名前は、そのセルだけさらに縮める。
-     *
-     * 測らずに文字種から幅を見積もる。全角は1文字ぶん、半角は半分。
-     * 200近いセルの寸法を1つずつ読むと、刷るたびに待たされる。
-     */
-    Array.from(grid.querySelectorAll('td.text .pv')).forEach(pv => {
-      pv.style.fontSize = '';
-      const t = (pv.textContent || '').trim();
-      if (!t) return;
-      const em = widthEm_(t);
-      if (em <= 3) return;                       // 3文字までは全体の大きさで入る
-      const fit = Math.max(PRINT_TEXT_MIN, inner / (em * 0.97));
-      if (fit < textFs) pv.style.fontSize = fit.toFixed(2) + 'px';
-    });
-
-    printZoom = z;
-    root.style.setProperty('--print-text-fs', textFs.toFixed(2) + 'px');
-    root.style.setProperty('--print-zoom', printZoom.toFixed(3));
-    root.style.setProperty('--print-cell-h', cellH.toFixed(2) + 'px');
-    root.style.setProperty('--print-cell-w', cellW.toFixed(2) + 'px');
-    return z;
-  }
-
   /* ═══ ルール違反の洗い出し ═════════════════════════════
      自動生成が守れなかったところを、黙って通さずに並べる。 */
   /** 直近の点検で見つかった件数（月を確定するときに出す） */
@@ -3686,13 +4048,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     box.textContent = '';
     const msgs = [];
     const r = DB.rules;
-
-    // 1枚に収めるために小さくしすぎているときは、刷る前に言う
-    if (printZoom < 0.62) {
-      msgs.push('行数が多いため、1枚に収めると ' + Math.round(printZoom * 100)
-        + '% まで縮みます。読みづらいときは、医師名欄の行数を減らすか、'
-        + '在籍していない人を社員マスタの在籍期間で外してください');
-    }
 
     // 保存できていないことを黙っていてはいけない。画面は動き続けるので、
     // 利用者は保存できたと思ったまま作業を続けてしまう
@@ -3722,21 +4077,22 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           seamWorkedOf_(s, curYear_, curMonth_), seamRunOf_(s, curYear_, curMonth_), checkLimits_())
           .forEach(t => msgs.push(s.name + '：' + t));
       }
-      // 有休（有休管理がオンの人だけ）。引ける付与が無い日と、今月失効する残り
-      {
-        const monthEnd = curYm + '-31';
-        const lg = leaveLedgerOf_(s, monthEnd);
-        if (lg) {
-          const here = lg.short.filter(d => d.slice(0, 7) === curYm);
-          if (here.length) {
-            msgs.push(s.name + '：有休が足りません（' + here.map(d => Number(d.slice(8)) + '日').join('・')
-              + '。入社日から計算した残りを使い切っています）');
-          }
-          lg.grants.filter(g => g.expires.slice(0, 7) === curYm && g.left > 0).forEach(g => {
-            msgs.push(s.name + '：' + g.date + ' 付与の有休が ' + g.left + ' 日残ったまま '
-              + g.expires + ' に失効します');
-          });
+      // 有休（有休管理がオンの人だけ）。引ける付与が無い日と、今月失効する残り（取引票から）
+      if (s.leaveManaged && normYmd_(s.hireDate)) {
+        const tx = DB.leaveTx || [], gs = DB.leave || [];
+        const here = tx.filter(t => t.staffId === s.id && leaveDrawsDay_(t) && String(t.date).slice(0, 7) === curYm
+          && !gs.some(g => g.id === t.grantId));
+        if (here.length) {
+          msgs.push(s.name + '：有休が足りません（' + here.map(t => Number(String(t.date).slice(8)) + '日').join('・')
+            + '。使える付与がありません。入社6か月前の人は、まだ付与がありません）');
         }
+        gs.filter(g => g.staffId === s.id && g.expireDate && g.expireDate.slice(0, 7) === curYm
+          && g.expireDate > todayYmd_()).forEach(g => {
+          const left = grantRemain_(g, tx);
+          if (left > 0) {
+            msgs.push(s.name + '：' + g.grantDate + ' 付与の有休が ' + left + ' 日残ったまま ' + g.expireDate + ' に失効します');
+          }
+        });
       }
       // 希望休の上限（1人・1か月あたり。既定3日）
       {
@@ -3887,28 +4243,19 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           + 'この時間帯だけ薄くなります');
       }
 
-      // 下限は土台（医師数 − 1、最低2人）。必要人数（仕事率モデル）に届かない日は
+      // 下限は土台（医師数と同じ、最低2人）。必要人数（仕事率モデル）に届かない日は
       // 過不足の行に出るので、ここでは土台を割った日だけ言う
       const nd = needOf_(c);
       const dn = docCount(c);
       if (on < staffBaseOf_(dn)) {
-        msgs.push(days[c].day + '日：薬剤師 ' + on + ' 人。土台（医師 ' + dn
-          + ' 人 − 1、最低 ' + staffBaseOf_(0) + ' 人）の ' + staffBaseOf_(dn) + ' 人に足りません');
+        msgs.push(days[c].day + '日：薬剤師 ' + on + ' 人。医師 ' + dn
+          + ' 人と同じ人数（最低 ' + staffBaseOf_(0) + ' 人）の ' + staffBaseOf_(dn) + ' 人に足りません');
       } else if (on > nd.max) {
         msgs.push(days[c].day + '日：薬剤師 ' + on + ' 人。店舗の収容上限 '
           + nd.max + ' 人を超えています');
       }
-      let clerks = 0;
-      ROWS.forEach(r2 => {
-        if (r2.kind === 'staff' && r2.role === 'clerk' && isWork(get(r2, c))) clerks++;
-      });
-      if (clerks < days[c].clerkMin) {
-        msgs.push(days[c].day + '日：事務 ' + clerks + ' 人（営業マスタの下限 '
-          + days[c].clerkMin + ' 人）');
-      } else if (clerks > clerkCapOf_()) {
-        msgs.push(days[c].day + '日：事務 ' + clerks + ' 人。店舗の収容上限 '
-          + clerkCapOf_() + ' 人を超えています');
-      }
+      // 事務員の日ごとの人数は確かめない。事務員は既定で「手動」（表に手で入れる）なので、
+      // 入れる前の月は毎日「下限に足りない」と出て、ほかの確認事項が埋もれていた
       if (r.needCloser && closer === 0) msgs.push(days[c].day + '日：締め作業ができる人がいない');
     }
 
@@ -3956,6 +4303,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     });
 
     lastWarnCount = msgs.length;
+    // 表の下をたたんでいても、確認が要る件数は見出しで分かるようにする
+    const stat = $('gridFootStat');
+    if (stat) {
+      stat.textContent = msgs.length ? '確認が要るところ ' + msgs.length + ' 件' : 'ルール違反なし';
+      stat.classList.toggle('bad', msgs.length > 0);
+    }
     if (!msgs.length) {
       const ok = el('div', 'warnbox ok', 'ルール違反は見つかりませんでした。');
       box.appendChild(ok);
@@ -3975,16 +4328,26 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
      古い付与から順に引く。**日付は 'yyyy-mm-dd' の文字列のまま扱う**（並べると古い順。
      VBA にもそのまま移せる形）。 */
 
+  /** 週の所定労働時間が空のときの見積もり（1日あたり）。9時間拘束・休憩1時間の勤務 */
+  const LEAVE_HOURS_PER_WORKDAY = 8;
+  /** これ未満なら比例付与になりうる（週の所定労働時間）。労基法39条3項・施行規則24条の3 */
+  const LEAVE_PROPORTIONAL_HOURS = 30;
+
   /**
    * 付与日数の表（労働基準法 第39条）。0 番目が入社6か月、以降1年ごと。7回目からは最後の値。
-   * 週5日以上は通常の表、週4日以下は比例付与の表。
+   * **比例付与は「週4日以下 かつ 週30時間未満」の人だけ。** それ以外は通常の労働者の表。
+   * 週4日でも1日8時間なら週32時間なので通常の表（半年 10日）。
+   * 週の所定労働時間が空なら「週の日数 × 8時間」で見積もる。
    *
    * @param {number} weekDays 週の所定労働日数
+   * @param {number=} weekHours 週の所定労働時間（空・0 なら見積もり）
    * @return {Array<number>} 付与日数
    */
-  function leaveTable_(weekDays) {
+  function leaveTable_(weekDays, weekHours) {
     const w = Number(weekDays) || 0;
-    if (w >= 5) return [10, 11, 12, 14, 16, 18, 20];
+    if (w <= 0) return [];
+    const h = Number(weekHours) > 0 ? Number(weekHours) : w * LEAVE_HOURS_PER_WORKDAY;
+    if (w >= 5 || h >= LEAVE_PROPORTIONAL_HOURS) return [10, 11, 12, 14, 16, 18, 20];
     if (w === 4) return [7, 8, 9, 10, 12, 13, 15];
     if (w === 3) return [5, 6, 6, 8, 9, 10, 11];
     if (w === 2) return [3, 4, 4, 5, 6, 6, 7];
@@ -4014,11 +4377,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * @param {string} hire 入社日 'yyyy-mm-dd'
    * @param {number} weekDays 週の所定労働日数
    * @param {string} until この日までの付与を返す 'yyyy-mm-dd'
+   * @param {number=} weekHours 週の所定労働時間（空なら見積もり。leaveTable_）
    * @return {Array<{date:string, days:number, expires:string}>}
    *         expires は失効日（この日から使えない）＝ 付与日の2年後
    */
-  function leaveGrants_(hire, weekDays, until) {
-    const table = leaveTable_(weekDays);
+  function leaveGrants_(hire, weekDays, until, weekHours) {
+    const table = leaveTable_(weekDays, weekHours);
     const out = [];
     if (!hire || !table.length) return out;
     for (let i = 0; i < 60; i++) {
@@ -4029,60 +4393,366 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     return out;
   }
 
-  /**
-   * 有休の台帳。使った日を古い順に並べ、その日に使える付与のうち古いものから1日ずつ引く。
-   *
-   * @param {Array<{date:string, days:number, expires:string}>} grants 付与
-   * @param {Object} prior 付与日 → 記録の前に使った日数（有休管理の表の「取得済み」）
-   * @param {Array<string>} uses 有休を使った日 'yyyy-mm-dd'
-   * @return {{grants:Array<Object>, short:Array<string>}}
-   *         grants は付与ごとの used（使った）と left（残り）。short は引ける付与が無かった日
+  /*
+   * ── 有休の帳簿（年次有給休暇管理簿）──────────────────────────
+   *   付与票 DB.leave   … 1付与 = 1行。{ id, staffId, grantDate, expireDate, grantDays, autoGrant }（入社日の暦どおり。手で直さない）
+   *                       expireDate は付与日の2年後（保存する。画面には出さない）
+   *   取引票 DB.leaveTx … 1回の出来事 = 1行。
+   *     { id, staffId, date, kind, days, hours, grantId, source, cellKey, cancelOf, cancelledBy, note, at }
+   *     kind   use（使用。−日）/ toHours（時間有休へ切り替え。−1日 ＋8時間）/ hourUse（時間有休の使用。−時間）/
+   *            adjust（調整。±日）/ cancel（取消。使用を打ち消す ＋日）/ expire（失効。有効期限の日に残りを消化）
+   *     source shift（シフト表の「有休」）/ manual（有休管理で手入力）/ system（失効など自動）
+   *     grantId どの付与から引いたか。**引いた時点で決めて動かさない**（過去の1行を消しても他の行は動かない）
+   *   残りは取引から数える: 付与の残り ＝ 付与日数 ＋ その付与の取引の日数の合計。時間有休の残り ＝ 時間の合計（期限なし）
    */
-  function leaveLedger_(grants, prior, uses) {
-    const g = grants.map(x => {
-      const pre = Math.min(x.days, Math.max(0, Number((prior || {})[x.date]) || 0));
-      return { date: x.date, days: x.days, expires: x.expires, used: pre, left: x.days - pre };
-    });
-    const short = [];
-    uses.slice().sort().forEach(d => {
-      const k = g.find(x => x.date <= d && d < x.expires && x.left > 0);
-      if (k) { k.used++; k.left--; } else short.push(d);
-    });
-    return { grants: g, short: short };
+
+  /** 1日を時間有休に切り替えたときの時間。端数を切り捨てないよう、時間で持つ（期限は管理しない） */
+  const LEAVE_HOURS_PER_DAY = 8;
+  const todayYmd_ = () => {
+    const n = new Date();
+    return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+  };
+  /** 画面に出す年月日。'2026-03-01' → '2026年03月01日'（読めなければそのまま） */
+  const jaYmd_ = d => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+    return m ? m[1] + '年' + m[2] + '月' + m[3] + '日' : String(d || '');
+  };
+  /** 取引の種類の呼び名 */
+  const LEAVE_TX_LABEL = Object.freeze({
+    use: '使用', toHours: '時間有休へ切り替え', hourUse: '時間有休の使用', adjust: '調整',
+    cancel: '取消', expire: '失効（消化扱い）'
+  });
+  /** 付与から日を引く取引（引き当てが要るもの） */
+  const leaveDrawsDay_ = t => (t.kind === 'use' || t.kind === 'toHours') && !t.cancelledBy;
+
+  /** 付与の残り。付与日数 ＋ その付与に結び付いた取引の日数の合計（使用・失効は負） */
+  function grantRemain_(g, tx) {
+    let n = Number(g.grantDays) || 0;
+    tx.forEach(t => { if (t.grantId === g.id) n += Number(t.days) || 0; });
+    return Math.round(n * 2) / 2;
   }
 
-  /** その人の有休の記号の日（表に入っているぶん。全部の月） */
-  function leaveUsesOf_(staff) {
-    const paid = DB.patterns.filter(p => !p.work && (p.label === '有休' || p.sym === '有休')).map(p => p.sym);
+  /**
+   * その日に引ける付与を選ぶ。付与日 ≦ その日 ＜ 有効期限、残りが足りるもの。**有効期限の早いものから。**
+   * @return {Object|null}
+   */
+  /** その日に使える付与（付与日 ≦ その日 ＜ 有効期限）。付与は2年で失効するので多くても2つ */
+  function liveGrants_(grants, staffId, date) {
+    return grants.filter(g => g.staffId === staffId && g.grantDate && g.expireDate
+      && g.grantDate <= date && date < g.expireDate);
+  }
+
+  function pickGrant_(grants, tx, staffId, date, need) {
+    const n = need > 0 ? need : 1;
+    const c = liveGrants_(grants, staffId, date).filter(g => grantRemain_(g, tx) >= n);
+    c.sort((a, b) => (a.expireDate < b.expireDate ? -1 : a.expireDate > b.expireDate ? 1
+      : a.grantDate < b.grantDate ? -1 : 1));
+    return c[0] || null;
+  }
+
+  /**
+   * 取引票をシフト表と付与票に合わせる。**配列を受けて書き換えるだけ**（DOM・DB を見ない）。
+   *   1. シフト表から消えた有休 … 確定前の月は行を消す。確定した月は行を残し「取消」を足す
+   *   2. シフト表に新しく入った有休 … 「使用」を1行作る
+   *   3. 引き当てていない取引（新しい使用・付与が無かった使用・付与を消した取引）を、日付の古い順に引き当てる
+   *   4. 有効期限を過ぎた付与 … 残りを有効期限の日に「失効」として消化する（1付与に1回）
+   * 読み込んでいない月（knownMonths に無い月）の取引は触らない（サーバ版は月ごとに読むため）。
+   *
+   * @param {Object} o
+   *   grants 付与票 / tx 取引票（書き換える） / cells いまシフト表に入っている有休 [{ staffId, date, cellKey }] /
+   *   managed 有休管理がオンの人の id（Set） / knownMonths 読み込んでいる月（Set）/ isFinal(ym) 確定した月か /
+   *   today 'yyyy-mm-dd' / now 記録した日時 / makeId() 新しい id
+   * @return {boolean} 書き換えたか
+   */
+  function reconcileLeave_(o) {
+    const tx = o.tx;
+    let changed = false;
+
+    // 前の版が同じ id で作った行を付け直す（2行目から。取消の繋がりは id で見るので、重なったままにしない）
+    const txIds = new Set();
+    tx.forEach(t => {
+      if (!t.id || txIds.has(t.id)) { t.id = o.makeId(); changed = true; }
+      txIds.add(t.id);
+    });
+    const live = new Map();
+    o.cells.forEach(c => { if (o.managed.has(c.staffId)) live.set(c.cellKey, c); });
+
+    // 0. 付与の行が消えた取引（入社日を直した・前の版の行を片付けた）。使用・切り替えは 3 で引き当て直す。
+    //    失効はその付与のものなので消す（4 で正しい付与に作り直す）。調整は、その日に使えた付与へ付け直す
+    const gids = new Set(o.grants.map(g => g.id));
+    for (let i = tx.length - 1; i >= 0; i--) {
+      const t = tx[i];
+      if (!t.grantId || gids.has(t.grantId) || !o.managed.has(t.staffId)) continue;
+      if (t.kind === 'expire') { tx.splice(i, 1); changed = true; continue; }
+      if (t.kind === 'adjust') {
+        const mine = o.grants.filter(g => g.staffId === t.staffId && g.grantDate && g.grantDate <= t.date)
+          .sort((a, b) => (a.grantDate < b.grantDate ? 1 : -1));
+        const g = mine.find(x => t.date < x.expireDate) || mine[0];
+        t.grantId = g ? g.id : '';
+        changed = true;
+      }
+    }
+
+    // 1. シフト表から消えた有休
+    for (let i = tx.length - 1; i >= 0; i--) {
+      const t = tx[i];
+      if (t.source !== 'shift' || t.kind !== 'use' || t.cancelledBy || live.has(t.cellKey)) continue;
+      // 有休管理をオフにした人・入社日を消した人の記録は、そのまま残す（消したのはセルではない）
+      if (!o.managed.has(t.staffId)) continue;
+      const ym = String(t.date).slice(0, 7);
+      if (!o.knownMonths.has(ym)) continue;
+      if (o.isFinal(ym)) {
+        const c = { id: o.makeId(), staffId: t.staffId, date: t.date, kind: 'cancel', days: -(Number(t.days) || 0),
+          hours: 0, grantId: t.grantId || '', source: 'shift', cellKey: t.cellKey, cancelOf: t.id,
+          note: 'シフト表から消した（確定した月）', at: o.now };
+        tx.push(c);
+        t.cancelledBy = c.id;
+      } else {
+        tx.splice(i, 1);
+      }
+      changed = true;
+    }
+
+    // 2. シフト表に新しく入った有休
+    const have = new Set(tx.filter(t => t.source === 'shift' && t.kind === 'use' && !t.cancelledBy).map(t => t.cellKey));
+    live.forEach(c => {
+      if (have.has(c.cellKey)) return;
+      tx.push({ id: o.makeId(), staffId: c.staffId, date: c.date, kind: 'use', days: -1, hours: 0, grantId: '',
+        source: 'shift', cellKey: c.cellKey, note: '', at: o.now });
+      changed = true;
+    });
+
+    // 3. 引き当てていない取引を、日付の古い順に
+    const ids = new Set(o.grants.map(g => g.id));
+    tx.filter(t => leaveDrawsDay_(t) && (!t.grantId || !ids.has(t.grantId)))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+      .forEach(t => {
+        if (t.grantId && !ids.has(t.grantId)) { t.grantId = ''; changed = true; }   // 付与を消した
+        const g = pickGrant_(o.grants, tx, t.staffId, t.date, -(Number(t.days) || 0));
+        if (g) { t.grantId = g.id; changed = true; }
+      });
+
+    // 4. 失効（有効期限の日に、残りを消化した扱い）。残りが 0 なら作らない。期限のあとで確定月の使用を
+    //    取り消して日が戻ったときは、その日もここで失効になる（失効の行が 2 行目になる）
+    o.grants.forEach(g => {
+      if (!g.expireDate || g.expireDate > o.today || !o.managed.has(g.staffId)) return;
+      const left = grantRemain_(g, tx);
+      if (left <= 0) return;
+      tx.push({ id: o.makeId(), staffId: g.staffId, date: g.expireDate, kind: 'expire', days: -left, hours: 0,
+        grantId: g.id, source: 'system', note: '有効期限（付与日の2年後）', at: o.now });
+      changed = true;
+    });
+    return changed;
+  }
+
+  /**
+   * その人の帳簿。付与と取引を日付の順に並べ、日の残・時間の残を足し引きする。**配列を受けて配列を返すだけ。**
+   * 引き当てられなかった使用（付与前・使い切り）は日を引かない（short）。時間有休への切り替えも、
+   * 引き当てられたときだけ 8 時間を足す。
+   * @return {Array<Object>} 各行に label・grantDate（引いた付与）・dayBal・hourBal・short を足したもの
+   */
+  function leaveBook_(staffId, grants, tx) {
+    const ORDER = { grant: 0, adjust: 1, use: 2, toHours: 2, cancel: 3, hourUse: 4, expire: 5 };
+    const byId = {};
+    grants.forEach(g => { byId[g.id] = g; });
+    const ev = [];
+    grants.filter(g => g.staffId === staffId && g.grantDate).forEach(g => {
+      ev.push({ date: g.grantDate, kind: 'grant', label: '付与', days: Number(g.grantDays) || 0, hours: 0,
+        grantDate: g.grantDate, grantId: g.id, source: g.autoGrant ? 'system' : 'manual', note: '' });
+    });
+    tx.filter(t => t.staffId === staffId).forEach(t => {
+      const g = byId[t.grantId];
+      const short = leaveDrawsDay_(t) && !g;
+      ev.push(Object.assign({}, t, {
+        label: LEAVE_TX_LABEL[t.kind] || t.kind,
+        days: short ? 0 : (Number(t.days) || 0),
+        hours: t.kind === 'toHours' ? (short ? 0 : (Number(t.hours) || 0)) : (Number(t.hours) || 0),
+        grantDate: g ? g.grantDate : '',
+        short: short,
+        note: t.note || ''
+      }));
+    });
+    ev.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (ORDER[a.kind] || 9) - (ORDER[b.kind] || 9)));
+    let dayBal = 0, hourBal = 0;
+    ev.forEach(e => {
+      dayBal += e.days; hourBal += e.hours;
+      e.dayBal = Math.round(dayBal * 2) / 2;
+      e.hourBal = hourBal;
+    });
+    return ev;
+  }
+
+  /** 前の形（付与の行に取得済み・調整、取引に時間有休だけ）から、付与票・取引票へ一度だけ移す */
+  function migrateLeaveLedger_(db) {
+    if (Number(db.leaveLedgerV) >= 2) return;
+    // 起動の load() から呼ばれ、const LEAVE_HOURS_PER_DAY より先に動くので、ここでは数字で書く（1日 = 8時間）
+    const HOURS_PER_DAY = 8;
+    const at = new Date().toISOString();
+    const tx = [];
+    (Array.isArray(db.leaveTx) ? db.leaveTx : []).forEach(t => {
+      if (!t || !t.staffId || !normYmd_(t.date)) return;
+      // もう新しい形の行（日数を持つ。前の形の取り込みで、手元の帳簿に版が付いていなかったとき）は、そのまま残す
+      if (typeof t.days === 'number') { tx.push(t); return; }
+      if (t.kind === 'toHours') {
+        tx.push({ id: t.id, staffId: t.staffId, date: normYmd_(t.date), kind: 'toHours', days: -1,
+          hours: HOURS_PER_DAY, grantId: '', source: 'manual', note: t.note || '', at: at });
+      } else if (t.kind === 'hourUse') {
+        tx.push({ id: t.id, staffId: t.staffId, date: normYmd_(t.date), kind: 'hourUse', days: 0,
+          hours: -(Number(t.hours) || 0), grantId: '', source: 'manual', note: t.note || '', at: at });
+      }
+    });
+    (Array.isArray(db.leave) ? db.leave : []).forEach(r => {
+      const d = normYmd_(r.grantDate);
+      if (d) { r.grantDate = d; r.expireDate = addMonthsYmd_(d, 24); }
+      const used = Number(r.usedDays) || 0;
+      if (d && used > 0) {
+        tx.push({ id: 'mv' + r.id + 'u', staffId: r.staffId, date: d, kind: 'use', days: -used, hours: 0,
+          grantId: r.id, source: 'manual', note: '記録前の取得（移し替え）', at: at });
+      }
+      const adj = Number(r.adjust) || 0;
+      if (d && adj) {
+        tx.push({ id: 'mv' + r.id + 'a', staffId: r.staffId, date: normYmd_(r.adjustAt) || d, kind: 'adjust', days: adj,
+          hours: 0, grantId: r.id, source: 'manual', note: r.adjustNote || '', at: at });
+      }
+      delete r.usedDays; delete r.adjust; delete r.adjustNote; delete r.adjustAt;
+    });
+    db.leaveTx = tx;
+    db.leaveLedgerV = 2;
+  }
+
+  /**
+   * 付与票を、入社日から合わせる。**付与票は入社日の暦どおり**（付与日・付与日数とも計算で決める。画面で手直ししない）。
+   *   1. 暦に無い付与日の行・付与日が空の行・同じ付与日の2行目は消す
+   *        （入社日を直す前の行、最初の付与を入社日の6か月後に直す前の行、社員を足したときの空の行）
+   *        その行から引いていた取引は、reconcileLeave_ が正しい付与に付け直す
+   *   2. 残す行の付与日数を、その付与日の計算値にそろえる（週の日数・時間を変えたときなど）
+   *   3. **今使える付与**（付与日から2年以内。まだ1回目の前なら最初の付与）の行が無ければ足す。失効した行は残す
+   *   4. 付与日を年月日にそろえ、有効期限（付与日の2年後）を入れる
+   * 有休管理がオフの人・入社日が読めない人は、行を消さない（4 だけ）。
+   *
+   * @param {Object} staff 社員
+   * @param {Array<Object>} rows 付与票（DB.leave。書き換え・行の追加と削除をする）
+   * @param {string} today 'yyyy-mm-dd'
+   * @param {function():string} makeId 新しい行の id を作る
+   * @return {boolean} 書き換えたか
+   */
+  function syncLeaveRows_(staff, rows, today, makeId) {
+    let changed = false;
+    const stamp = r => {
+      const d = normYmd_(r.grantDate);
+      if (!d) return;
+      if (r.grantDate !== d) { r.grantDate = d; changed = true; }
+      const e = addMonthsYmd_(d, 24);
+      if (r.expireDate !== e) { r.expireDate = e; changed = true; }
+    };
+    const mine = rows.filter(r => r && r.staffId === staff.id);
+    const hire = staff ? normYmd_(staff.hireDate) : '';
+    if (!staff.leaveManaged || !hire || !leaveTable_(staff.weekDays, staff.weekHours).length) {
+      mine.forEach(stamp);
+      return changed;
+    }
+    const all = leaveGrants_(hire, staff.weekDays, today, staff.weekHours);            // 今日までの付与
+    let want = all.filter(g => g.expires > today);                                     // 今使える付与
+    if (!all.length) want = leaveGrants_(hire, staff.weekDays, addMonthsYmd_(hire, 6), staff.weekHours);   // 1回目の前
+    const plan = new Map();
+    all.concat(want).forEach(g => plan.set(g.date, g.days));
+
+    // 1・2. 暦に合う行だけ残し、付与日数を計算値にそろえる
+    const seen = new Set();
+    mine.forEach(r => {
+      const d = normYmd_(r.grantDate);
+      if (!d || !plan.has(d) || seen.has(d)) {
+        rows.splice(rows.indexOf(r), 1);
+        changed = true;
+        return;
+      }
+      seen.add(d);
+      if (Number(r.grantDays) !== plan.get(d)) { r.grantDays = plan.get(d); changed = true; }
+      if (!r.autoGrant) { r.autoGrant = true; changed = true; }
+      if ('manualDays' in r) { delete r.manualDays; changed = true; }
+      stamp(r);
+    });
+    // 3. 今使える付与の行を足す
+    want.forEach(g => {
+      if (seen.has(g.date)) return;
+      const r = { id: makeId(), staffId: staff.id, grantDate: g.date, grantDays: g.days, autoGrant: true };
+      stamp(r);
+      rows.push(r);
+      seen.add(g.date);
+      changed = true;
+    });
+    return changed;
+  }
+
+  /** いまシフト表に入っている「有休」のセル（全部の月）。[{ staffId, date, cellKey }] */
+  function paidCells_() {
+    const paid = paidSyms_();
     const out = [];
     values.forEach((v, k) => {
+      if (paid.indexOf(v) < 0) return;
       const part = k.split('|');
-      if (part.length !== 3 || part[0] !== staff.id || paid.indexOf(v) < 0) return;
-      out.push(part[1] + '-' + String(part[2]).padStart(2, '0'));
-    });
-    return out.sort();
-  }
-
-  /** 有休管理の表の「取得済み」を、付与日ごとにまとめる（記録の前に使ったぶん） */
-  function leavePriorOf_(staff) {
-    const out = {};
-    (DB.leave || []).forEach(r => {
-      if (r.staffId !== staff.id) return;
-      const d = normYmd_(r.grantDate);
-      if (d) out[d] = (out[d] || 0) + (Number(r.usedDays) || 0);
+      if (part.length !== 3 || part[0].indexOf(':') >= 0 || !/^\d{4}-\d{2}$/.test(part[1])) return;
+      out.push({ staffId: part[0], date: part[1] + '-' + String(part[2]).padStart(2, '0'), cellKey: k });
     });
     return out;
   }
 
   /**
-   * その人の台帳（有休管理がオンで、入社日が読める人だけ）。読めなければ null
-   * @param {Object} staff 社員
-   * @param {string} until この日までの付与を数える 'yyyy-mm-dd'
+   * 有休の帳簿を、いまの付与票・シフト表に合わせる。**集計（recalc）のたびに通る**。
+   * 変わったときだけ保存する。失敗しても表の作業は止めない（帳簿は次の集計で合わせ直す）。
    */
-  function leaveLedgerOf_(staff, until) {
-    const hire = normYmd_(staff.hireDate);
-    if (!staff.leaveManaged || !hire) return null;
-    return leaveLedger_(leaveGrants_(hire, staff.weekDays, until), leavePriorOf_(staff), leaveUsesOf_(staff));
+  function syncLeaveLedger_() {
+    try {
+      // サーバ版で月を切り替えた直後は、その月のセルがまだ届いていない。ここで合わせると、
+      // その月の有休を「消した」と読んで取消を書いてしまう。届いたら（applyMonth_ の描き直しで）合わせる
+      if (SYNC.on && SYNC.monthKey !== syncKey_()) return;
+      if (!Array.isArray(DB.leave)) DB.leave = [];
+      if (!Array.isArray(DB.leaveTx)) DB.leaveTx = [];
+      const today = todayYmd_();
+      let changed = false;
+      DB.staff.forEach(st => { if (syncLeaveRows_(st, DB.leave, today, () => newId('l'))) changed = true; });
+      const known = new Set([curYm]);
+      values.forEach((v, k) => { const p = k.split('|'); if (p.length === 3 && /^\d{4}-\d{2}$/.test(p[1])) known.add(p[1]); });
+      const fin = Object.keys(DB.finalized || {});
+      if (reconcileLeave_({
+        grants: DB.leave, tx: DB.leaveTx, cells: paidCells_(),
+        managed: new Set(DB.staff.filter(x => x.leaveManaged && normYmd_(x.hireDate)).map(x => x.id)),
+        knownMonths: known, isFinal: ym => fin.some(k => k.slice(-8) === '|' + ym),
+        today: today, now: new Date().toISOString(), makeId: () => newId('t')
+      })) changed = true;
+      if (changed) save();
+    } catch (e) {
+      console.error('[syncLeaveLedger_] ' + e.message + ' / ' + e.stack);
+    }
+  }
+
+  /**
+   * 1人の残日数を「want 日」に直すための調整を、付与ごとに割り振る。**配列を受けて結果を返すだけ。**
+   * 減らすときは有効期限の早い付与から、増やすときは新しい付与から（どの付与も付与日数を超えない）。
+   * @return {{now:number, max:number, parts:Array<{grantId:string, days:number}>}|null} 範囲外なら null
+   */
+  function planLeaveAdjust_(grants, tx, staffId, today, want) {
+    const live = liveGrants_(grants, staffId, today);
+    const half = n => Math.round(n * 2) / 2;
+    const now = half(live.reduce((a, g) => a + grantRemain_(g, tx), 0));
+    const max = live.reduce((a, g) => a + (Number(g.grantDays) || 0), 0);
+    const w = half(Number(want));
+    if (!Number.isFinite(w) || w < 0 || w > max) return null;
+    let diff = half(w - now);
+    const parts = [];
+    const byExp = live.slice().sort((a, b) => (a.expireDate < b.expireDate ? -1 : a.expireDate > b.expireDate ? 1 : 0));
+    if (diff < 0) {
+      byExp.forEach(g => {
+        const take = Math.min(Math.max(0, grantRemain_(g, tx)), -diff);
+        if (take > 0) { parts.push({ grantId: g.id, days: -take }); diff += take; }
+      });
+    } else if (diff > 0) {
+      byExp.reverse().forEach(g => {
+        const give = Math.min((Number(g.grantDays) || 0) - grantRemain_(g, tx), diff);
+        if (give > 0) { parts.push({ grantId: g.id, days: give }); diff -= give; }
+      });
+    }
+    return { now: now, max: max, parts: parts };
   }
 
   /* ═══ チェック ═════════════════════════════════════════
@@ -4287,6 +4957,44 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 公休ノルマは労基上の管理項目なので動かさない。各自の出勤日数を先に決め、
    * それを使い切るように日へ配る。
    */
+  /**
+   * 連続出勤の目安（rules.softCons。既定3）で組む。**上限（maxCons）は守る規則のまま、目安は「なるべく」。**
+   *   1. 全員を目安までで組む。目安では出勤日数が置ききれない人だけ上限まで延ばして、最初から組み直す
+   *      （途中から延ばすと、先に組んだ形が邪魔をして置ききれないことがある）
+   *   2. それで、置けない出勤・必要人数に届かない日が、目安を使わない組み方より増えるなら、
+   *      目安を超える人を後ろへ回すだけの組み方に戻す（公休ノルマと必要人数のほうを守る）
+   * 置き方は placeAllStaff_ が毎回やり直す（手で入れたもの以外を消してから置く）ので、何度呼んでもよい。
+   * 由来: 4連勤を減らしたいという現場の要望（上限4日は実データ由来のまま。docs/REAL-SHIFT-ANALYSIS.md）。
+   */
+  function placeWithSoftCons_(weeks, offSym) {
+    const soft = Number(DB.rules.softCons) || 0;
+    if (soft <= 0) { placeAllStaff_(weeks, offSym, { soft: 0 }); return; }
+    const keepNotes = autoNotes.slice();
+    const run = opt => { autoNotes = keepNotes.slice(); return placeAllStaff_(weeks, offSym, opt); };
+    // 3通り組んで、置けない出勤 → 必要人数に届かない日 → 目安を超えた連勤 の少ない順に選ぶ
+    const tries = [];
+    const tryOpt = opt => { const g = run(opt); tries.push({ opt: opt, g: g }); return g; };
+    tryOpt({ soft: 0, measure: soft });                   // 目安を使わない（前と同じ組み方）
+    tryOpt({ soft: soft });                               // 目安を超える人を後ろへ回すだけ
+    const wide = new Set();
+    for (let k = 0; k < 8; k++) {                         // 目安までで組み、置ききれない人だけ延ばして組み直す
+      const g = tryOpt({ soft: soft, wide: new Set(wide) });
+      if (!g.tight.length) break;
+      g.tight.forEach(i => wide.add(i));
+    }
+    // 置けない出勤が同じなら、空欄（有休が要る日）にならない組み方を選ぶ
+    const score = t => [t.g.left, t.g.blank, t.g.short, t.g.over];
+    const better = (a, b) => { const x = score(a), y = score(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
+    let best = tries[0];
+    tries.forEach(t => { if (better(t, best)) best = t; });
+    // いま表に残っているのは最後に組んだもの。選んだのが別なら組み直す
+    const got = best === tries[tries.length - 1] ? best.g : run(best.opt);
+    if (got.over) {
+      note_('連続出勤の目安 ' + soft + ' 日を超える連勤が ' + got.over + ' 回あります'
+        + '（出勤日数・必要人数を守るため。上限は守っています）');
+    }
+  }
+
   function autoGenerate() {
     const offSym = (DB.patterns.find(p => !p.work) || { sym: '公休' }).sym;
     const weeks = buildWeeks();
@@ -4306,7 +5014,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
     });
 
-    placeAllStaff_(weeks, offSym);
+    placeWithSoftCons_(weeks, offSym);
 
     assignShiftSymbols_(manual);
 
@@ -4324,7 +5032,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    *   人数  1   2    3     4      5       6        7         8
    *        ○  ○▲  ○▲▲  ○▲▲●  ○▲▲●●  ○▲▲●●▲  ○▲▲●●▲○  ○▲▲●●▲○▲
    *
-   * 土台（医師数 − 1、最低2人）で早番と遅番を1人ずつ確保する。**3人の日は遅番を2人**にして、
+   * 土台（医師数と同じ、最低2人）で早番と遅番を1人ずつ確保する。**3人の日は遅番を2人**にして、
    * 遅番2〜3人のチェックを満たす（以前は 3人目が遅半で、3人の日は遅番が1人だった）。
    * 4人以上の日の記号の数は以前と同じ（3人目と4人目を入れ替えただけ）。
    * 記号は出勤記号の表示順で、先頭が早番、2番目が遅半、最後が遅番。
@@ -5098,52 +5806,53 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /**
-   * 土台の人数 ＝ 医師数 − 1。早番と遅番を1人ずつ置けるよう、最低 baseMinPharm 人（既定2）
+   * 土台の人数 ＝ **医師数と同じ**。早番と遅番を1人ずつ置けるよう、最低 baseMinPharm 人（既定2）。
+   * 現場の指定（2026-10）: 医師数より薬剤師が少ない日を作らない。
    */
   function staffBaseOf_(d) {
     const v = Number(DB.rules.baseMinPharm);
     const floor = Number.isFinite(v) && v >= 1 ? v : 2;
-    return Math.max(floor, d - 1);
+    return Math.max(floor, d);
   }
 
   /**
-   * 薬剤師の延べ出勤を日へ配る。
-   * **配列を受けて配列を返すだけ。** 画面にも表にも触らない（VBA にそのまま移せる形）。
+   * 薬剤師の延べ出勤を日へ配る。**配列を受けて配列を返すだけ。** 画面にも表にも触らない（VBA にそのまま移せる形）。
+   * 現場の指定（2026-10）の順番で配る:
    *
-   *   1. 土台を置く（医師数 − 1。最低2人）
-   *   2. 残りを1人ずつ、「必要人数 − 埋まった人数」がいちばん大きい日へ足す。
-   *      同じなら医師数の多い日、忙しい日、日曜でない日、その週・その曜日にまだ足していない日、
-   *      日付の早い日
-   *   3. 延べ出勤を配りきったら止める。全日が必要人数に届いても余っていれば、
-   *      同じ決め方で足し続ける（必要人数を超えた分がいちばん少ない日へ）
+   *   1. 土台 … 月〜土は医師数と同じ人数、次に日曜も医師数と同じ人数（最低 floor 人。既定2＝早番と遅番）
+   *   2. 上乗せ … **3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜** の順に1人ずつ一巡。
+   *      余ればもう一巡（+2人目）。同じ段の中では 忙しい日 → その週・その曜日にまだ足していない日 → 日付の早い日
+   *   3. それでも余れば、上乗せの順に入らない日（医師0〜2人の平日）へ。出勤日数を置ききるため
    *
    * 上限（店舗の収容上限・その日に出られる人数）は超えない。
-   * 土台だけで延べ出勤を超える月は、「必要人数 − 人数」がいちばん小さい日から1人ずつ戻す。
-   * 最低人数 floor（早番と遅番の2人）は割らない。それでも配りきれなければ1人まで戻す。
+   * 土台だけで延べ出勤を超える月は、**日曜から**（医師の少ない日・人数の多い日・日付の遅い日から）1人ずつ戻し、
+   * それでも足りなければ医師数の少ない平日から戻す。最低 floor 人は割らない。それでも配りきれなければ1人まで戻す。
+   *
+   * need（仕事率モデルの必要人数）と quiet は配り方には使わない（過不足の行と、引数の形を保つために受ける）。
    *
    * @param {number} total 配る合計（薬剤師の延べ出勤）
    * @param {Array<number>} docs 日ごとの医師数
-   * @param {Array<number>} need 日ごとの必要人数（整数）
-   * @param {Array<number>} base 日ごとの土台（整数）
+   * @param {Array<number>} need 日ごとの必要人数（使わない）
+   * @param {Array<number>} base 日ごとの土台（整数。staffBaseOf_）
    * @param {Array<number>} hi 日ごとの上限（整数）
-   * @param {Array<number>} busy 日ごとの忙しさ（同点のときだけ使う）
-   * @param {number} floor 削るときに割らない人数（土台の最低。既定 2）
-   * @param {Array<number>} week 日ごとの週の番号（同点のとき週の間で散らす）
-   * @param {Array<number>} quiet 日ごとに 1 なら後回し（患者さんの少ない曜日。既定は日曜）
-   * @param {Array<number>} dow 日ごとの曜日（同点のとき曜日の間で散らす）
+   * @param {Array<number>} busy 日ごとの忙しさ（同じ段の中の順番）
+   * @param {number} floor 削るときに割らない人数（既定 2）
+   * @param {Array<number>} week 日ごとの週の番号（同じ段の中で週の間に散らす）
+   * @param {Array<number>} quiet 使わない
+   * @param {Array<number>} dow 日ごとの曜日（0 が日曜）
    * @return {{n:Array<number>, baseSum:number, left:number}}
    *         n は日ごとの人数、baseSum は土台の合計、left は配りきれなかった人数
    */
   function allocateStaff_(total, docs, need, base, hi, busy, floor, week, quiet, dow) {
     const len = docs.length;
     const keep = Number.isFinite(floor) && floor >= 1 ? floor : 1;
+    const sun = j => (dow ? dow[j] === 0 : false);
     const n = [];
     for (let j = 0; j < len; j++) n.push(Math.min(base[j], hi[j]));
     const baseSum = n.reduce((a, v) => a + v, 0);
     let left = total - baseSum;
 
-    // 土台だけで超える月。「必要人数 − 人数」がいちばん小さい日から戻す（同じなら医師の少ない日、
-    // 日付の遅い日）。最低人数（早番と遅番の2人）は割らない。それでも足りなければ1人まで
+    // 土台だけで超える月。日曜から戻す（医師の少ない日 → 人数の多い日 → 日付の遅い日）。次に医師の少ない平日
     for (let stage = 0; stage < 2 && left < 0; stage++) {
       const lim = stage === 0 ? keep : 1;
       while (left < 0) {
@@ -5151,8 +5860,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         for (let j = 0; j < len; j++) {
           if (n[j] <= lim) continue;
           if (pick < 0) { pick = j; continue; }
-          const d = (n[j] - need[j]) - (n[pick] - need[pick]);
-          if (d > 0 || (d === 0 && (docs[j] < docs[pick] || (docs[j] === docs[pick] && j > pick)))) pick = j;
+          const d = (sun(j) ? 1 : 0) - (sun(pick) ? 1 : 0)
+            || docs[pick] - docs[j]
+            || n[j] - n[pick]
+            || j - pick;
+          if (d > 0) pick = j;
         }
         if (pick < 0) break;
         n[pick]--;
@@ -5160,32 +5872,62 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
     }
 
-    // 必要人数 − 埋まった人数 が大きい日から1人ずつ。同じなら 医師数の多い日 → 忙しい日 →
-    // 患者さんの少ない曜日（日曜）でない日 → その週にまだ足していない日 →
-    // その曜日にまだ足していない日（日付順だと月の前半・週の頭に寄る）→ 日付の早い日
+    // 上乗せの段。0 = 3診 / 1 = 4診 / 2 = 5診 / 3 = 6診以上（日曜以外）/ 4 = 日曜。-1 は上乗せしない日
+    const tierOf = j => (sun(j) ? 4 : docs[j] >= 6 ? 3 : docs[j] >= 3 ? docs[j] - 3 : -1);
     const added = {};                                   // 週 → 足した人数
     const addedDow = {};                                // 曜日 → 足した人数
     const wk = j => (week ? week[j] : 0);
     const dw = j => (dow ? dow[j] : 0);
-    const qt = j => (quiet && quiet[j] ? 1 : 0);
+    const add = j => {
+      n[j]++;
+      left--;
+      added[wk(j)] = (added[wk(j)] || 0) + 1;
+      addedDow[dw(j)] = (addedDow[dw(j)] || 0) + 1;
+    };
+    // 同じ段の中の順番。毎回並べ直す（足した週・曜日が変わるので）
+    const nextIn = cands => {
+      let pick = -1;
+      cands.forEach(j => {
+        if (pick < 0) { pick = j; return; }
+        const d = (busy[j] || 0) - (busy[pick] || 0)
+          || (added[wk(pick)] || 0) - (added[wk(j)] || 0)
+          || (addedDow[dw(pick)] || 0) - (addedDow[dw(j)] || 0)
+          || pick - j;
+        if (d > 0) pick = j;
+      });
+      return pick;
+    };
+    for (let round = 0; left > 0; round++) {
+      let moved = false;
+      for (let t = 0; t <= 4 && left > 0; t++) {
+        // この巡の段。まだこの巡で足していない日（n < 土台 ＋ 巡の数 ＋ 1）だけ
+        const done = new Set();
+        for (;;) {
+          if (left <= 0) break;
+          const cands = [];
+          for (let j = 0; j < len; j++) {
+            if (tierOf(j) !== t || done.has(j) || n[j] >= hi[j]) continue;
+            if (n[j] >= Math.min(base[j], hi[j]) + round + 1) continue;
+            cands.push(j);
+          }
+          if (!cands.length) break;
+          const j = nextIn(cands);
+          add(j);
+          done.add(j);
+          moved = true;
+        }
+      }
+      if (!moved) break;                                // どの段も上限
+    }
+    // まだ余れば、上乗せの順に入らない日へ（人数の少ない日から）
     while (left > 0) {
       let pick = -1;
       for (let j = 0; j < len; j++) {
         if (n[j] >= hi[j]) continue;
-        if (pick < 0) { pick = j; continue; }
-        const d = (need[j] - n[j]) - (need[pick] - n[pick])
-          || docs[j] - docs[pick]
-          || (busy[j] || 0) - (busy[pick] || 0)
-          || qt(pick) - qt(j)
-          || (added[wk(pick)] || 0) - (added[wk(j)] || 0)
-          || (addedDow[dw(pick)] || 0) - (addedDow[dw(j)] || 0);
-        if (d > 0) pick = j;
+        if (pick < 0 || n[j] < n[pick] || (n[j] === n[pick] && j < pick)) pick = j;
       }
-      if (pick < 0) break;                              // どの日も上限
-      n[pick]++;
-      added[wk(pick)] = (added[wk(pick)] || 0) + 1;
-      addedDow[dw(pick)] = (addedDow[dw(pick)] || 0) + 1;
-      left--;
+      if (pick < 0) break;
+      add(pick);
     }
     return { n: n, baseSum: baseSum, left: left };
   }
@@ -5197,8 +5939,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 先に処理した人ほど人手の足りない日を取れるので、表の並び順で結果が偏っていた。
    * いまは日の側から見る。
    *
-   *   0. 配分 … 薬剤師の延べ出勤を日へ配る（allocateStaff_）。土台は 医師数 − 1、
-   *             残りは「必要人数 − 埋まった人数」が大きい日から1人ずつ
+   *   0. 配分 … 薬剤師の延べ出勤を日へ配る（allocateStaff_）。土台は医師数と同じ、
+   *             残りは 3診 → 4診 → 5診 → 6診以上 → 日曜 の順に1人ずつ
    *   1. 下限まで（薬剤師は土台、事務は営業マスタの下限）
    *   2. （1 と同じ。段の名前だけ残している）
    *   3. 配分まで
@@ -5231,8 +5973,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    *
    * @param {Array<Object>} weeks buildWeeks() の週
    * @param {string} offSym 公休の記号
+   * @param {Object=} opt 連続出勤の目安。{ soft: 目安の日数（0 で使わない）, wide: 上限まで延ばす人（行の index の Set）,
+   *   measure: 目安を使わずに組むときに、比べるために数える目安の日数 }
+   *   wide が無いとき … 全員、上限まで。目安を超える人は、その日の候補の中で後ろへ回すだけ
+   *   wide があるとき … wide の人は上限まで、ほかの人は目安までしか続けて置かない
+   * @return {{left:number, blank:number, short:number, over:number, tight:Array<number>}} 置けなかった出勤日数（うち公休ノルマのある人の分）・
+   *   必要人数に届かない日・目安を超えた連勤の回数・目安では置ききれなかった人（行の index）
    */
-  function placeAllStaff_(weeks, offSym) {
+  function placeAllStaff_(weeks, offSym, opt) {
+    const o = opt || {};
     const weekOf = [];
     weeks.forEach((w, wi) => w.cols.forEach(c => { weekOf[c] = wi; }));
     const quota = offQuotaFor();
@@ -5240,7 +5989,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const plans = ROWS
       .filter(r => r.kind === 'staff' && r.staff && r.staff.rule !== RULE_MANUAL)
       .map(r => planOf_(r, weeks, weekOf, offSym, quota));
-    plans.forEach(p => { p.prio = prioOf[p.idx]; });
+    // 連続出勤の目安（autoGenerate が決めて渡す）。capNow がこの組み方での連勤の上限
+    const soft = Number(o.soft) || 0;
+    plans.forEach(p => {
+      p.prio = prioOf[p.idx];
+      p.capNow = soft > 0 && o.wide && !o.wide.has(p.idx) ? Math.min(p.cap, soft) : p.cap;
+    });
 
     const open = [];
     for (let c = 0; c < DAY_COLS; c++) if (days[c].inMonth && days[c].open) open.push(c);
@@ -5273,9 +6027,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
      * 薬剤師の配分。**最初に、その月の延べ出勤を日へ配る**（allocateStaff_）。
      *
      *   延べ出勤 ＝ 自動で置く人の今月の出勤日数 ＋ 手で置いた出勤（派遣など）
-     *   土台     ＝ 医師数 − 1（最低2人。早番と遅番）
-     *   必要人数 ＝ 仕事率モデル（needModel_）を四捨五入
-     *   土台を置いたあと、「必要人数 − 埋まった人数」が大きい日から1人ずつ足し、
+     *   土台     ＝ 医師数と同じ（最低2人。早番と遅番）
+     *   必要人数 ＝ 仕事率モデル（needModel_）を四捨五入。過不足の行に出すだけで、配り方には使わない
+     *   土台を置いたあと、3診 → 4診 → 5診 → 6診以上 → 日曜 の順に1人ずつ足し、
      *   延べ出勤を配りきったら止める
      *
      * 上限は店舗の収容上限と、その日に出られる人の数。
@@ -5308,19 +6062,24 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       nd.need = needs[j];
       nd.alloc = alloc.n[j];
       nd.min = Math.min(Math.min(staffBaseOf_(docsOf[j]), hi[j]), alloc.n[j]);   // 土台
+      // 最低人数（早番と遅番）。土台より先に全日へ置く。土台（医師数）から置くと、医師の多い日が
+      // 先に人の週の枠を使い切り、医師の少ない日（日曜など）に誰も残らないことがある
+      nd.floor = Math.min(staffBaseOf_(0), nd.min);
       nd.lo = nd.min;
     });
     open.forEach(c => {
+      needAt.clerk[c].floor = needAt.clerk[c].min;
       needAt.clerk[c].lo = needAt.clerk[c].min;
       needAt.clerk[c].alloc = needAt.clerk[c].target;
     });
     const shortDays = open.filter((c, j) => alloc.n[j] < needs[j]).length;
-    allocInfo = '薬剤師の延べ出勤 ' + supply + ' 人日を配りました（土台 医師数−1 に '
-      + alloc.baseSum + ' 人日、残りを必要人数との差が大きい日へ）。'
+    allocInfo = '薬剤師の延べ出勤 ' + supply + ' 人日を配りました（医師数と同じ人数に '
+      + alloc.baseSum + ' 人日、残りを 3診→4診→5診→6診→日曜 の順に1人ずつ）。'
       + (shortDays ? '必要人数に届かない日 ' + shortDays + ' 日' : '全日 必要人数以上');
 
     const wantOff = (p, c) => !!(p.s.wantOffDow && p.s.wantOffDow[days[c].dow]);
-    const runOk = (p, c) => {
+    /** c に置いたときの連勤の長さ（前月末からの連勤も数える） */
+    const runLen = (p, c) => {
       let n = 1;
       for (let k = c - 1; ; k--) {
         if (k < 0 || !days[k].inMonth) { n += p.prevRun; break; }   // 月初まで続いた
@@ -5328,8 +6087,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         n++;
       }
       for (let k = c + 1; k < DAY_COLS && days[k].inMonth && isWork(get(p.row, k)); k++) n++;
-      return n <= p.cap;
+      return n;
     };
+    // 月の最後の週は目安を使わない（翌月の先頭の週と連勤に効くので、上限までの余地を残す）
+    const tailFrom = weeks.length ? weeks[weeks.length - 1].cols[0] : DAY_COLS;
+    const runOk = (p, c) => runLen(p, c) <= (c >= tailFrom ? p.cap : p.capNow);
+    // 目安を超える連勤になる人は、その日の候補の中で後ろへ回す（ほかに置ける人がいれば使わない）
+    const overSoft = (p, c) => (soft > 0 && c < tailFrom && runLen(p, c) > soft ? 1 : 0);
     const can = (p, c) => p.left > 0 && !p.forced.has(c) && !get(p.row, c)
       && p.wk[weekOf[c]].n < p.wk[weekOf[c]].cap && runOk(p, c);
 
@@ -5383,7 +6147,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
             const lack = nd[level] - on[pool][c];
             if (lack <= 0 || !cands.length) return;
             const tight = cands.length - lack;
-            key = level === 'min'
+            key = level === 'min' || level === 'floor'
               ? [tight - busy[c], -docCount(c), c]
               : [-(nd[level] + busy[c]), -docCount(c), tight, c];
           }
@@ -5400,6 +6164,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         const pick = best.cands.slice().sort((a, b) =>
           (needCloser ? (b.s.canClose ? 1 : 0) - (a.s.canClose ? 1 : 0) : 0)
           || (wantOff(a, c) ? 1 : 0) - (wantOff(b, c) ? 1 : 0)
+          || overSoft(a, c) - overSoft(b, c)
           || urgency(b) - urgency(a)
           || wkRatio(a) - wkRatio(b)
           || a.prio - b.prio)[0];                  // その月の順位（起点を月ごとにずらす）
@@ -5494,7 +6259,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
     };
 
-    ['pharm', 'clerk'].forEach(pool => {
+    const passes = pool => {
+      fill(pool, 'floor');
       fill(pool, 'min');
       fill(pool, 'lo');
       shiftTo(pool, 'lo');
@@ -5515,7 +6281,200 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         shiftTo(pool, 'lo');
         shiftTo(pool, 'alloc');
       }
-    });
+    };
+    ['pharm', 'clerk'].forEach(passes);
+
+    /*
+     * 置いたあとの入れ替え。**同じ週の中で、2人の出勤日を取り替えるだけ**（X: d → e、Y: e → d）。
+     * 日ごとの人数・人の週と月の出勤数・公休は変わらないので、ここで何を足しても組めなくなることはない。
+     * 手で入れた日・先に置いた日（必ず出る曜日）・出られない日・できるだけ休みたい曜日へは動かさない。
+     * 連勤の上限（目安で組んだ人は目安）を守り、目安を超える連勤を増やさず、締め作業の人を残す。
+     * 現場の指定（2026-10）で、次の順に整える。前の段で整えたものは、あとの段で崩さない。
+     *   1. 「◯診出勤」（医師が busyDocN_() 人以上の日の出勤）を、出勤日数に比例した数に近づける
+     *   2. 個人の要望 … 土日どちらか休み（月◯回。weekendOffN）・できるだけ休みたい曜日（wantOffDow）
+     *   3. 曜日の偏り … 曜日ごとの出勤を、その曜日の営業日数に比例した数に近づける（生活リズム）
+     */
+    const busyN = busyDocN_();
+    const isBusy = c => docCount(c) >= busyN;
+    const movable = (p, c) => isWork(get(p.row, c)) && !p.keep.has(c) && !p.first.has(c);
+    const freeFor = (p, c) => !get(p.row, c) && !p.keep.has(c) && !p.forced.has(c) && !wantOff(p, c);
+    const runsOk = p => {
+      let n = p.prevRun || 0;
+      for (let c = 0; c < DAY_COLS; c++) {
+        if (!days[c].inMonth) continue;
+        if (isWork(get(p.row, c))) { n++; if (n > p.capNow) return false; } else n = 0;
+      }
+      return true;
+    };
+    // 連続出勤の目安を超える連勤の回数（入れ替えで増やさない）
+    const meas = soft || Number(o.measure) || 0;
+    const overOf = p => {
+      if (!meas) return 0;
+      let n = p.prevRun || 0, k = 0;
+      for (let c = 0; c < DAY_COLS; c++) {
+        if (!days[c].inMonth) continue;
+        if (isWork(get(p.row, c))) n++; else { if (n > meas) k++; n = 0; }
+      }
+      return k + (n > meas ? 1 : 0);
+    };
+    const closerOk = (pool, c) => !(pool === 'pharm' && DB.rules.needCloser) || closer[c] >= 1;
+    const swapRaw = (x, d, y, e) => {
+      const symX = get(x.row, d), symY = get(y.row, e);
+      unplace(x, d); unplace(y, e);
+      place(x, e); place(y, d);
+      setV(x.row, e, symX); setV(y.row, d, symY);
+    };
+    /**
+     * 取り替えてみて、守るものを守れて better() が真なら残す。残したら true
+     * keepFn … 前の段で整えたものを崩していないか（取り替えたあとに見る）
+     */
+    const trySwap = (x, d, y, e, better) => {
+      if (x === y || d === e || weekOf[d] !== weekOf[e]) return false;
+      if (!movable(x, d) || !freeFor(y, d) || !movable(y, e) || !freeFor(x, e)) return false;
+      const pool = x.pool;
+      const cD = closerOk(pool, d), cE = closerOk(pool, e);
+      const over0 = overOf(x) + overOf(y);
+      swapRaw(x, d, y, e);
+      if (runsOk(x) && runsOk(y) && overOf(x) + overOf(y) <= over0
+        && (!cD || closerOk(pool, d)) && (!cE || closerOk(pool, e)) && better()) return true;
+      swapRaw(x, e, y, d);                                // 戻す
+      return false;
+    };
+    const worksOf = p => open.filter(c => isWork(get(p.row, c))).length;
+
+    // 土日どちらか休み。月の中の「土曜と翌日の日曜」の組を数える（日曜が休業なら、その組は休みとして数える）
+    const weekends = open.filter(c => days[c].dow === 6 && c + 1 < DAY_COLS && days[c + 1].inMonth)
+      .map(c => [c, c + 1]);
+    const wkWant = p => Math.min(Number(p.s.weekendOffN) || 0, weekends.length);
+    const wkGot = p => weekends.filter(([sa, su]) => !isWork(get(p.row, sa)) || !isWork(get(p.row, su))).length;
+    // できるだけ休みたい曜日に出ている日数
+    const wantOffHits = p => open.filter(c => wantOff(p, c) && isWork(get(p.row, c))).length;
+    // 要望が崩れていない（叶った数が、希望の数か、前の数のどちらか小さいほうを割らない）
+    const wishKeep = (p, wk0, hit0) => wkGot(p) >= Math.min(wkWant(p), wk0) && wantOffHits(p) <= hit0;
+
+    const balancePool = pool => {
+      const mine = plans.filter(p => p.pool === pool);
+      if (mine.length < 2) return;
+      const weekCols = wi => weeks[wi].cols.filter(c => days[c].inMonth && days[c].open);
+
+      // 1. ◯診出勤
+      if (open.some(isBusy)) {
+        const busyOf = p => open.filter(c => isBusy(c) && isWork(get(p.row, c))).length;
+        for (let guard = 0; guard < 400; guard++) {
+          const totalW = mine.reduce((acc, p) => acc + worksOf(p), 0);
+          const totalB = mine.reduce((acc, p) => acc + busyOf(p), 0);
+          if (!totalW) break;
+          const excess = p => busyOf(p) - worksOf(p) * totalB / totalW;
+          const order = mine.slice().sort((p, q) => excess(q) - excess(p));
+          let done = false;
+          for (let i = 0; i < order.length && !done; i++) {
+            for (let k = order.length - 1; k > i && !done; k--) {
+              const x = order[i], y = order[k];
+              if (excess(x) - excess(y) < 1.5) continue;   // 1回動かして縮む差だけ動かす
+              for (let wi = 0; wi < weeks.length && !done; wi++) {
+                const cols = weekCols(wi);
+                for (const d of cols) {
+                  if (done) break;
+                  if (!isBusy(d)) continue;
+                  for (const e of cols) {
+                    if (isBusy(e)) continue;
+                    if (trySwap(x, d, y, e, () => true)) { done = true; break; }
+                  }
+                }
+              }
+            }
+          }
+          if (!done) break;
+        }
+      }
+
+      // 2. 個人の要望。◯診出勤を崩さないよう、忙しさの同じ日どうしでだけ取り替える
+      const sameBusy = (d, e) => isBusy(d) === isBusy(e);
+      for (let guard = 0; guard < 300; guard++) {
+        let done = false;
+        // 2-1. 土日どちらか休み（希望の数に届いていない人から）
+        mine.filter(x => wkGot(x) < wkWant(x)).forEach(x => {
+          if (done) return;
+          weekends.forEach(([sa, su]) => {
+            if (done || !isWork(get(x.row, sa)) || !isWork(get(x.row, su))) return;
+            [su, sa].forEach(t => {                        // 日曜を先に空ける（土曜のほうが人が要る）
+              if (done) return;
+              weekCols(weekOf[t]).forEach(e => {
+                if (done || e === sa || e === su || !sameBusy(t, e)) return;
+                mine.forEach(y => {
+                  if (done || y === x) return;
+                  const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
+                  done = trySwap(x, t, y, e, () => wkGot(x) > wkX && wishKeep(y, wkY, hitY) && wantOffHits(x) <= hitX);
+                });
+              });
+            });
+          });
+        });
+        // 2-2. できるだけ休みたい曜日に出ている日を、ほかの人と取り替える
+        mine.filter(x => wantOffHits(x) > 0).forEach(x => {
+          if (done) return;
+          open.forEach(d => {
+            if (done || !wantOff(x, d) || !isWork(get(x.row, d))) return;
+            weekCols(weekOf[d]).forEach(e => {
+              if (done || !sameBusy(d, e)) return;
+              mine.forEach(y => {
+                if (done || y === x) return;
+                const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
+                done = trySwap(x, d, y, e, () => wantOffHits(x) < hitX && wishKeep(x, wkX, hitX) && wishKeep(y, wkY, hitY));
+              });
+            });
+          });
+        });
+        if (!done) break;
+      }
+
+      // 3. 曜日の偏り。曜日ごとの出勤を、出られる曜日（休みたい曜日を除く）の営業日数に比例した数に近づける
+      const openByDow = [0, 0, 0, 0, 0, 0, 0];
+      open.forEach(c => { openByDow[days[c].dow]++; });
+      const devOf = p => {
+        const got = [0, 0, 0, 0, 0, 0, 0];
+        open.forEach(c => { if (isWork(get(p.row, c))) got[days[c].dow]++; });
+        const wt = openByDow.map((n, dw) => (p.s.availDow && !p.s.availDow[dw]) || (p.s.wantOffDow && p.s.wantOffDow[dw]) ? 0 : n);
+        const sum = wt.reduce((acc, v) => acc + v, 0);
+        const w = worksOf(p);
+        return got.reduce((acc, g, dw) => acc + Math.pow(g - (sum ? w * wt[dw] / sum : 0), 2), 0);
+      };
+      for (let guard = 0; guard < 400; guard++) {
+        let done = false;
+        const order = mine.slice().sort((p, q) => devOf(q) - devOf(p));
+        for (let i = 0; i < order.length && !done; i++) {
+          const x = order[i];
+          for (let wi = 0; wi < weeks.length && !done; wi++) {
+            const cols = weekCols(wi);
+            for (const d of cols) {
+              if (done) break;
+              for (const e of cols) {
+                if (done) break;
+                if (days[d].dow === days[e].dow || !sameBusy(d, e)) continue;
+                for (const y of mine) {
+                  if (y === x) continue;
+                  const dev0 = devOf(x) + devOf(y);
+                  const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
+                  if (trySwap(x, d, y, e, () => devOf(x) + devOf(y) < dev0 - 0.5
+                    && wishKeep(x, wkX, hitX) && wishKeep(y, wkY, hitY))) { done = true; break; }
+                }
+              }
+            }
+          }
+        }
+        if (!done) break;
+      }
+
+      // 叶わなかった要望を申し送る
+      mine.forEach(p => {
+        const want = wkWant(p);
+        if (want && wkGot(p) < want) {
+          note_(p.s.name + '：土日どちらか休みは 月' + want + '回の希望に対し ' + wkGot(p) + ' 回です'
+            + '（土日に要る人数・週の出勤日数のため）');
+        }
+      });
+    };
+    ['pharm', 'clerk'].forEach(balancePool);
 
     // 残りを公休にする。通常はノルマちょうどまで、それ以外は全部。
     // 休業日から先に埋める（店が閉まっている日は必ず公休）。
@@ -5541,6 +6500,29 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     });
 
     verifyWeeks_(plans, weeks);
+
+    // 組み方を比べるための数（autoGenerate が使う）
+    // 目安を超えた連勤の回数。目安を使わずに組んだときも、比べるために数える（measure）
+    let over = 0;
+    if (meas > 0) {
+      plans.forEach(p => {
+        let n = p.prevRun || 0;
+        const end = () => { if (n > meas) over++; n = 0; };
+        for (let c = 0; c < DAY_COLS; c++) {
+          if (!days[c].inMonth) continue;
+          if (isWork(get(p.row, c))) n++; else end();
+        }
+        end();
+      });
+    }
+    return {
+      left: plans.reduce((a, p) => a + Math.max(0, p.left), 0),
+      // そのうち公休ノルマのある人の分（記号未定の空欄になり、有休を当てる必要が出る）
+      blank: plans.reduce((a, p) => a + (usesQuota(p.s) ? Math.max(0, p.left) : 0), 0),
+      short: open.filter(c => on.pharm[c] < Math.round(needAt.pharm[c].need || 0)).length,
+      over: over,
+      tight: plans.filter(p => p.left > 0 && p.capNow < p.cap).map(p => p.idx)
+    };
   }
 
   /**
@@ -5669,6 +6651,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         emptyMeans: '全店',
         group: '所属' },
       { key: 'weekDays',   head: '週勤務日数',  type: 'num', min: 0, max: 7, group: '配置ルール（この人だけに効く）' },
+      // 週の所定労働時間。有休の比例付与（週4日以下 かつ 30時間未満）を決める。空なら週の日数 × 8時間
+      { key: 'weekHours',  head: '週所定時間', type: 'num', min: 0, max: 60,
+        ph: rec => String((Number(rec.weekDays) || 0) * 8), group: '契約' },
       { key: 'leaveManaged', head: '有休管理', type: 'check', group: '契約' },
       { key: 'hireDate', head: '入社日', type: 'text', w: 96, ph: 'yyyy-mm-dd',
         check: v => !!normYmd_(v), hint: '年月日で入れてください（例 2024-04-01）', group: '契約' },
@@ -5688,6 +6673,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { key: 'availDow',   head: '出られる曜日', type: 'dow', group: '配置ルール（この人だけに効く）' },
       { key: 'fixedDow',   head: '必ず出る曜日', type: 'dow', group: '配置ルール（この人だけに効く）' },
       { key: 'wantOffDow', head: 'できるだけ休みたい曜日', type: 'dow',
+        group: '配置ルール（この人だけに効く）' },
+      // 希望する人だけ。土曜か日曜のどちらかが休みになる週末を、月にこの回数まで作る（できるだけ。叶わない分は表の下に出す）
+      { key: 'weekendOffN', head: '土日どちらか休み（月◯回）', type: 'num', min: 0, max: 5, ph: '希望なし',
         group: '配置ルール（この人だけに効く）' },
       { key: 'canClose',   head: '締め作業',    type: 'check', group: '資格' },
       { key: 'from',       head: '在籍 開始',   type: 'text', w: 82, ph: 'yyyy-mm', check: okYearMonth, hint: HINT_YM, group: '在籍' },
@@ -5758,17 +6746,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { key: 'to',    head: '終了', type: 'text', w: 90, ph: '1/3',   check: okMonthDay, hint: HINT_MD },
       { key: 'from2', head: '短縮時 開局', type: 'text', w: 88, ph: 'hh:mm', check: okTime, hint: HINT_TIME },
       { key: 'to2',   head: '短縮時 閉局', type: 'text', w: 88, ph: 'hh:mm', check: okTime, hint: HINT_TIME }
-    ],
-    leave: [
-      { key: 'staffId',   head: '氏名',     type: 'staff' },
-      { key: 'grantDate', head: '付与日',   type: 'text', w: 110, ph: 'yyyy-mm-dd',
-        check: v => /\d{4}\D+\d{1,2}\D+\d{1,2}/.test(v), hint: '年月日で入れてください（例 2026-04-01）' },
-      { key: 'grantDays', head: '付与日数', type: 'num', min: 0, max: 40 },
-      { key: 'usedDays',  head: '取得済み', type: 'num', min: 0, max: 40 },
-      { key: 'remain',    head: '残',       type: 'calc',
-        calc: r => (Number(r.grantDays) || 0) - (Number(r.usedDays) || 0) }
     ]
   };
+  /** マスタの表をすべて描き直す。有休管理は COLS に無いので足す */
+  function renderAllMasters_() {
+    Object.keys(COLS).forEach(renderMaster);
+    renderLeave_();
+  }
   const LIST_OF = { store: 'stores', hours: 'hours', closure: 'closures',
                     holiday: 'holidays', demand: 'demand',
                     staff: 'staff', doctor: 'doctors', pattern: 'patterns',
@@ -5973,7 +6957,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           const at = list.indexOf(rec);
           if (at >= 0) list.splice(at, 1);
           save(); renderMaster(name);
-          if (group) renderMaster('leave');  // 参照先が消えたことを出す
           if (name === 'store') syncActiveStore();
           refreshAll();
         });
@@ -5990,7 +6973,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         if (ev.target && ev.target.tagName === 'SELECT') setTimeout(() => renderMaster('staff'), 0);
       });
     }
-    if (name === 'leave') showLeaveIntegrity();
     if (group) renderArchived_();
   }
 
@@ -6141,56 +7123,305 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 繋ぎ目は氏名ではなく id なので、氏名を変えても切れない。
    * 切れるのは社員を削除したときで、そのときは黙って通さない。
    */
-  /** 有休管理がオンの人の、入社日から計算した台帳を描く */
+  /**
+   * 1人の残日数の見え方。**配列を受けて結果を返すだけ。**
+   * 今使える付与（付与済み・有効期限前）ごとに残りを出す。付与は2年で失効するので、多くても2つ。
+   * @return {{ grants: Array<{grantDate, grantDays, remain}>, total, hours, timing, bad, notes: string[] }}
+   */
+  function leaveStatusOf_(staff, grants, tx, today) {
+    const live = liveGrants_(grants, staff.id, today)
+      .sort((a, b) => (a.grantDate < b.grantDate ? -1 : 1));
+    const rows = live.map(g => ({ grantDate: g.grantDate, grantDays: Number(g.grantDays) || 0,
+      remain: Math.max(0, grantRemain_(g, tx)), expireDate: g.expireDate }));
+    // 新しい付与が今年度、ひとつ前が前年度（付与は2年で失効するので、使えるのは多くても2つ）
+    const cur = rows.length ? rows[rows.length - 1] : null;
+    const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+    const total = rows.reduce((a, r) => a + r.remain, 0);
+    const book = leaveBook_(staff.id, grants, tx);
+    const hours = book.length ? book[book.length - 1].hourBal : 0;
+    const hire = normYmd_(staff.hireDate);
+    // 付与タイミング: 毎年の付与の月日と、次の付与日・日数
+    const next = hire ? leaveGrants_(hire, staff.weekDays, addMonthsYmd_(today, 13), staff.weekHours)
+      .find(g => g.date > today) : null;
+    const md = d => Number(d.slice(5, 7)) + '月' + Number(d.slice(8, 10)) + '日';
+    const timing = !next ? '—' : rows.length
+      ? '毎年 ' + md(next.date) + '（次は ' + jaYmd_(next.date) + '・' + next.days + ' 日）'
+      : jaYmd_(next.date) + ' に最初の付与（' + next.days + ' 日）';
+    const notes = [];
+    if (!hire) notes.push('入社日を入れてください（社員マスタ）');
+    else if (!rows.length && !grants.some(g => g.staffId === staff.id && g.grantDate && g.grantDate <= today)) notes.push('付与前');
+    if (hours < 0) notes.push('時間有休が ' + (-hours) + ' 時間足りません');
+    const short = book.filter(e => e.short).map(e => jaYmd_(e.date));
+    if (short.length) notes.push('引ける有休が無い日 ' + short.join('、'));
+    rows.forEach(r => {
+      if (r.remain > 0 && r.expireDate <= addMonthsYmd_(today, 2)) {
+        notes.push((r === cur ? '今年度' : '前年度') + '付与の ' + r.remain + ' 日が ' + jaYmd_(r.expireDate) + ' に失効');
+      }
+    });
+    const bad = !!(!hire || short.length || hours < 0 || notes.some(n => /失効/.test(n)));
+    return { grants: rows, prev: prev, cur: cur, total: total, hours: hours, timing: timing, bad: bad, notes: notes };
+  }
+
+  /** 有休管理がオンの人（しまった人は除く）。入社日が無い人も入れる（表で「入社日を入れてください」と出す） */
+  function leavePeople_() { return DB.staff.filter(s => s.leaveManaged && !s.archived); }
+
+  /** 残日数の表。有休管理がオンの人ごとに、前年度付与・今年度付与の2行 */
   function renderLeaveAuto_() {
     const t = $('leaveAuto');
     if (!t) return;
     t.textContent = '';
-    const head = el('tr');
-    ['氏名', '付与日', '日数', '失効日', '使った', '残り'].forEach(h => head.appendChild(el('th', '', h)));
-    t.appendChild(head);
-    const today = new Date();
-    const until = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-31';
-    let any = false;
-    DB.staff.forEach(s => {
-      const lg = leaveLedgerOf_(s, until);
-      if (!lg) return;
-      any = true;
-      lg.grants.forEach(g => {
-        const tr = el('tr');
-        [s.name, g.date, g.days, g.expires, g.used, g.left].forEach(v => tr.appendChild(el('td', '', String(v))));
-        t.appendChild(tr);
+    const thead = el('thead'), head = el('tr');
+    ['氏名', '', '付与日', '付与日数', '残日数', '合計', '時間有休', '付与タイミング', '確かめること']
+      .forEach(h => head.appendChild(el('th', '', h)));
+    thead.appendChild(head);
+    t.appendChild(thead);
+    const tbody = el('tbody');
+    const today = todayYmd_();
+    // 入社日が無い・読めない人も出す（出さないと、有休管理をオンにしたのに表に居ない理由が分からない）
+    const people = leavePeople_();
+    people.forEach(s => {
+      const v = leaveStatusOf_(s, DB.leave || [], DB.leaveTx || [], today);
+      // 付与は2年で失効するので、使える付与は多くても2つ。行の高さをそろえるため、いつも2行にする
+      const lines = [['前年度付与', v.prev], ['今年度付与', v.cur]];
+      const span = lines.length;
+      lines.forEach(([label, g], i) => {
+        const tr = el('tr', i === 0 ? 'lgfirst' : 'lgsub');
+        // 人ごとの欄は最初の行にだけ置き、行をまたがせる
+        const cell = (text, cls) => { const td = el('td', cls || '', text); td.rowSpan = span; tr.appendChild(td); return td; };
+        if (i === 0) cell(s.name || '(氏名なし)');
+        tr.appendChild(el('td', 'lglabel', label));
+        tr.appendChild(el('td', '', g ? jaYmd_(g.grantDate) : '—'));
+        tr.appendChild(el('td', 'num', g ? g.grantDays + ' 日' : ''));
+        tr.appendChild(el('td', 'num', g ? g.remain + ' 日' : ''));
+        if (i === 0) {
+          cell(v.total + ' 日', 'num').style.fontWeight = '600';
+          cell(v.hours + ' 時間', 'num');
+          cell(v.timing);
+          const n = cell(v.notes.join(' / ') || '—');
+          if (v.bad) n.style.color = 'var(--danger)';
+        }
+        tbody.appendChild(tr);
       });
-      if (lg.short.length) {
-        const tr = el('tr');
-        const td = el('td', '', s.name + '：引ける有休が無い日 ' + lg.short.join('、'));
-        td.colSpan = 6;
-        td.style.color = 'var(--danger)';
-        tr.appendChild(td);
-        t.appendChild(tr);
-      }
     });
-    if (!any) {
+    if (!people.length) {
       const tr = el('tr');
-      const td = el('td', '', '有休管理がオンで、入社日が入っている人はいません');
-      td.colSpan = 6;
+      const td = el('td', 'note', '有休管理がオンの人はいません（社員マスタで設定します）');
+      td.colSpan = 9;
       tr.appendChild(td);
-      t.appendChild(tr);
+      tbody.appendChild(tr);
     }
+    t.appendChild(tbody);
+    // 有休管理がオフの人。表に居ない理由が分かるように名前を出す
+    const off = DB.staff.filter(s => !s.leaveManaged && !s.archived).map(s => s.name || '(氏名なし)');
+    const box = $('leaveOff');
+    if (box) box.textContent = off.length ? '有休管理がオフの人（表に出ません。社員マスタの「有休管理」でオンにします）: ' + off.join('、') : '';
   }
 
-  function showLeaveIntegrity() {
+  /**
+   * 1人の有休の残日数を直す。**使える残（合計）を入れると、いまとの差を付与ごとに割り振り、取引票に「調整」として足す。**
+   * 調整を取り消すときは、取引票のその行を × で消す。残りは今使える付与の付与日数の合計を超えない。
+   */
+  let leaveAdjStaff = '';
+  function openLeaveAdj_(staffId) {
+    const dlg = $('leaveAdjAsk');
+    if (!dlg || typeof dlg.showModal !== 'function') return;
+    const st = DB.staff.find(x => x.id === staffId);
+    if (!st) return;
+    syncLeaveLedger_();
+    const plan = planLeaveAdjust_(DB.leave || [], DB.leaveTx || [], staffId, todayYmd_(), 0);
+    if (!plan || !plan.max) { $('ltxStat').textContent = st.name + ' さんには、今使える付与がありません（付与前）'; return; }
+    leaveAdjStaff = staffId;
+    $('leaveAdjWhat').textContent = st.name;
+    $('leaveAdjLeft').max = plan.max;
+    $('leaveAdjLeft').value = plan.now;
+    $('leaveAdjNote').value = '';
+    $('leaveAdjInfo').textContent = 'いま使える残り ' + plan.now + ' 日（今使える付与の合計 ' + plan.max + ' 日）。'
+      + '差を取引票に「調整」として足します。減らすときは有効期限の早い付与から引きます'
+      + '（取り消すときは取引票の行を × で消す）';
+    $('leaveAdjMsg').textContent = '';
+    dlg.showModal();
+  }
+  function closeLeaveAdj_() {
+    leaveAdjStaff = '';
+    if ($('leaveAdjAsk').open) $('leaveAdjAsk').close();
+  }
+  $('leaveAdjGo').addEventListener('click', () => {
+    const staffId = leaveAdjStaff;
+    if (!staffId) return;
+    try {
+      const raw = String($('leaveAdjLeft').value).trim();      // 空は 0 日と読まない（残りを全部消してしまう）
+      const plan = raw === '' ? null : planLeaveAdjust_(DB.leave || [], DB.leaveTx || [], staffId, todayYmd_(), raw);
+      if (!plan) {
+        $('leaveAdjMsg').textContent = '残日数は 0〜' + $('leaveAdjLeft').max + ' 日で、0.5 日単位で入れてください';
+        return;
+      }
+      if (plan.parts.length) {
+        if (!Array.isArray(DB.leaveTx)) DB.leaveTx = [];
+        const note = $('leaveAdjNote').value.trim(), at = new Date().toISOString(), date = todayYmd_();
+        plan.parts.forEach(p => DB.leaveTx.push({ id: newId('t'), staffId: staffId, date: date, kind: 'adjust',
+          days: p.days, hours: 0, grantId: p.grantId, source: 'manual', note: note, at: at }));
+        save();
+      }
+      closeLeaveAdj_();
+      renderLeave_(); refreshAll();
+    } catch (e) {
+      console.error('[leaveAdjGo] ' + e.message + ' / ' + e.stack);
+      $('leaveAdjMsg').textContent = '保存できませんでした: ' + e.message;
+    }
+  });
+  $('leaveAdjNo').addEventListener('click', closeLeaveAdj_);
+
+  /** 取引票の出どころの呼び名 */
+  const LEAVE_SRC_LABEL = Object.freeze({ shift: 'シフト表', manual: '手入力', system: '自動' });
+
+  /** 取引票（選んだ社員の帳簿。期間は1年／3年。年次有給休暇管理簿は3年保存）を描く */
+  let ltxStaffId = '';
+  function renderLeaveTx_() {
+    const sel = $('ltxStaff'), t = $('ltxTable');
+    if (!sel || !t) return;
+    const people = leavePeople_();
+    sel.textContent = '';
+    people.forEach(s => sel.appendChild(new Option(s.name || '(氏名なし)', s.id)));
+    if (!people.some(s => s.id === ltxStaffId)) ltxStaffId = people.length ? people[0].id : '';
+    sel.value = ltxStaffId;
+    ['ltxUse', 'ltxToHours', 'ltxHourUse', 'ltxAdj'].forEach(id => { $(id).disabled = !ltxStaffId; });
+    t.textContent = '';
+    const head = el('tr');
+    ['日付', '内容', '日数', '時間', '引いた付与', '出どころ', '日の残', '時間の残', 'メモ', '']
+      .forEach(h => head.appendChild(el('th', '', h)));
+    const thead = el('thead'); thead.appendChild(head); t.appendChild(thead);
+    const tbody = el('tbody');
+    if (!ltxStaffId) {
+      const tr = el('tr'); const td = el('td', 'note', '有休管理がオンで、入社日が入っている人はいません');
+      td.colSpan = 10; tr.appendChild(td); tbody.appendChild(tr); t.appendChild(tbody);
+      return;
+    }
+    const book = leaveBook_(ltxStaffId, DB.leave || [], DB.leaveTx || []);
+    const today = todayYmd_();
+    const years = Number($('ltxSpan').value) || 1;
+    const from = addMonthsYmd_(today, -12 * years);
+    const shown = book.filter(e => e.date >= from);
+    const before = book.filter(e => e.date < from);
+    const sign = n => (n > 0 ? '+' : '') + n;
+    // 期間より前からの残り（ここから足し引きが始まる）
+    if (before.length) {
+      const b = before[before.length - 1];
+      const tr = el('tr', 'ltxcarry');
+      [jaYmd_(from), '前からの残り', '', '', '', '', String(b.dayBal), b.hourBal + ' 時間', '', ''].forEach(v => tr.appendChild(el('td', '', v)));
+      tbody.appendChild(tr);
+    }
+    if (!shown.length) {
+      const tr = el('tr'); const td = el('td', 'note', 'この期間の記録はありません'); td.colSpan = 10;
+      tr.appendChild(td); tbody.appendChild(tr);
+    }
+    shown.forEach(e => {
+      const tr = el('tr');
+      if (e.short) tr.style.color = 'var(--danger)';
+      if (e.cancelledBy) tr.classList.add('ltxvoid');
+      if (e.date > today) tr.classList.add('ltxplan');
+      const what = e.label + (e.short ? '（引ける付与なし）' : '') + (e.cancelledBy ? '（取消済み）' : '')
+        + (e.date > today ? '（予定）' : '');
+      [jaYmd_(e.date), what, e.days ? sign(e.days) : '', e.hours ? sign(e.hours) : '',
+        e.kind === 'grant' ? '' : (e.grantDate ? jaYmd_(e.grantDate) + ' 付与' : '—'), LEAVE_SRC_LABEL[e.source] || '',
+        String(e.dayBal), e.hourBal + ' 時間', e.note || '']
+        .forEach(v => tr.appendChild(el('td', '', v)));
+      const dc = el('td');
+      // 手で入れた取引だけ消せる（シフト表の行はシフト表で直す。付与は付与票で直す）
+      if (e.kind !== 'grant' && e.source === 'manual' && e.id) {
+        const b = el('button', 'del', '×');
+        b.title = 'この記録を消す（二度押し）';
+        arm(b, '消す?', () => {
+          DB.leaveTx = (DB.leaveTx || []).filter(x => x.id !== e.id);
+          save(); renderLeave_(); refreshAll();
+        });
+        dc.appendChild(b);
+      }
+      tr.appendChild(dc);
+      tbody.appendChild(tr);
+    });
+    t.appendChild(tbody);
+  }
+
+  /** 手入力の取引を聞く（使用・時間有休への切り替え・時間有休の使用） */
+  let ltxMode = '';
+  function openLtx_(mode) {
+    const st = DB.staff.find(s => s.id === ltxStaffId);
+    if (!st) return;
+    ltxMode = mode;
+    // 残日数の表と同じ数え方（今使える付与の残り）。帳簿の「日の残」はまだ来ていない付与・予定も足すので使わない
+    const now = leaveStatusOf_(st, DB.leave || [], DB.leaveTx || [], todayYmd_());
+    const last = { dayBal: now.total, hourBal: now.hours };
+    $('ltxTitle').textContent = mode === 'use' ? '有休の使用を足す（シフト表に無い日）'
+      : mode === 'toHours' ? '時間有休に切り替える（1日 → 8時間）' : '時間有休を使う';
+    $('ltxWho').textContent = st.name + '（いまの残り ' + last.dayBal + ' 日・時間有休 ' + last.hourBal + ' 時間）';
+    $('ltxDate').value = todayYmd_();
+    $('ltxHoursRow').hidden = mode !== 'hourUse';
+    $('ltxDaysRow').hidden = mode !== 'use';
+    $('ltxHours').value = 1;
+    $('ltxDays').value = 1;
+    $('ltxNote').value = '';
+    $('ltxInfo').textContent = mode === 'use'
+      ? 'シフト表を使う前の取得・ほかの店での取得など。その日に使える付与のうち、有効期限の早いものから引きます'
+      : mode === 'toHours'
+      ? 'その日に有休を1日消費し、同じ日に時間有休 8 時間を足します。時間有休に期限はありません'
+      : '時間有休の残りから引きます（1日を切り替えてできた時間）';
+    $('ltxMsg').textContent = '';
+    $('ltxAsk').showModal();
+  }
+  function closeLtx_() { ltxMode = ''; if ($('ltxAsk').open) $('ltxAsk').close(); }
+  $('ltxStaff').addEventListener('change', () => { ltxStaffId = $('ltxStaff').value; $('ltxStat').textContent = ''; renderLeaveTx_(); });
+  $('ltxSpan').addEventListener('change', renderLeaveTx_);
+  $('ltxUse').addEventListener('click', () => openLtx_('use'));
+  $('ltxToHours').addEventListener('click', () => openLtx_('toHours'));
+  $('ltxHourUse').addEventListener('click', () => openLtx_('hourUse'));
+  $('ltxAdj').addEventListener('click', () => openLeaveAdj_(ltxStaffId));
+  $('ltxNo').addEventListener('click', closeLtx_);
+  $('ltxGo').addEventListener('click', () => {
+    try {
+      const date = normYmd_($('ltxDate').value);
+      if (!date) { $('ltxMsg').textContent = '日付を入れてください'; return; }
+      const rec = { id: newId('t'), staffId: ltxStaffId, date: date, kind: ltxMode, days: 0, hours: 0, grantId: '',
+        source: 'manual', note: $('ltxNote').value.trim(), at: new Date().toISOString() };
+      if (ltxMode === 'hourUse') {
+        const h = Number($('ltxHours').value);
+        if (!(h > 0 && h <= LEAVE_HOURS_PER_DAY && Number.isInteger(h))) {
+          $('ltxMsg').textContent = '時間は 1〜' + LEAVE_HOURS_PER_DAY + ' の整数で入れてください';
+          return;
+        }
+        rec.hours = -h;
+      } else if (ltxMode === 'toHours') {
+        rec.days = -1;
+        rec.hours = LEAVE_HOURS_PER_DAY;
+      } else {
+        const d = Number($('ltxDays').value);
+        if (!(d > 0 && d <= 20 && d * 2 === Math.round(d * 2))) {
+          $('ltxMsg').textContent = '日数は 0.5 日単位で、20 日までで入れてください';
+          return;
+        }
+        rec.days = -d;
+      }
+      // 日を引く取引は、いま引き当てる（引けなければ空のまま。表の確認に「足りない」と出る）
+      if (rec.days < 0) {
+        const g = pickGrant_(DB.leave || [], DB.leaveTx || [], rec.staffId, rec.date, -rec.days);
+        if (g) rec.grantId = g.id;
+      }
+      if (!Array.isArray(DB.leaveTx)) DB.leaveTx = [];
+      DB.leaveTx.push(rec);
+      save();
+      closeLtx_();
+      renderLeave_(); refreshAll();
+      $('ltxStat').textContent = rec.days < 0 && !rec.grantId ? '記録しました（引ける有休がありません）' : '記録しました';
+    } catch (e) {
+      console.error('[ltxGo] ' + e.message + ' / ' + e.stack);
+      $('ltxMsg').textContent = '記録できませんでした: ' + e.message;
+    }
+  });
+
+  /** 有休管理のタブを描く。付与票は画面に出さない（入社日から自動で作り、裏で持つ）。帳簿を合わせてから、残日数と記録を描く */
+  function renderLeave_() {
+    syncLeaveLedger_();
     renderLeaveAuto_();
-    const box = $('leaveWarn');
-    if (!box) return;
-    const ids = new Set(DB.staff.map(s => s.id));
-    const orphan = DB.leave.filter(r => !ids.has(r.staffId)).length;
-    const missing = DB.staff.filter(s => !DB.leave.some(r => r.staffId === s.id)).length;
-    const msgs = [];
-    if (orphan) msgs.push('参照先が消えた行 ' + orphan + ' 件');
-    if (missing) msgs.push('有休行が無い社員 ' + missing + ' 名');
-    box.textContent = msgs.length ? '⚠ ' + msgs.join(' / ') : '社員マスタとの対応に問題はありません。';
-    box.style.color = msgs.length ? 'var(--danger)' : 'var(--ink-faint)';
+    renderLeaveTx_();
   }
 
   function fieldCell(col, rec, master) {
@@ -6338,7 +7569,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         sel2.appendChild(op);
       });
       sel2.value = rec[col.key];
-      sel2.addEventListener('change', () => { rec[col.key] = sel2.value; commit(); });
+      sel2.addEventListener('change', () => {
+        rec[col.key] = sel2.value;
+        commit();
+      });
       td.appendChild(sel2);
       return td;
     }
@@ -6372,13 +7606,18 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * どのマスタとも重ならない id を作る。
    * 同じミリ秒に2行足すと Date.now() だけでは衝突するので、既存を見て避ける。
    * この id が有休管理・シフト表のセル・書き出し JSON の繋ぎ目になる。
+   * **作ってまだ足していない id とも重ねない**（有休の取引票は、1回の集計で何行も作ってから足す。
+   * 前は同じミリ秒の行がすべて同じ id になり、× で消すと全部消えた）。取引票（leaveTx）も見る。
    */
+  let lastIdN = 0;
   function newId(prefix) {
     const used = new Set();
     Object.keys(LIST_OF).forEach(k =>
       (DB[LIST_OF[k]] || []).forEach(r => { if (r.id) used.add(r.id); }));
-    let n = Date.now(), id;
+    (DB.leaveTx || []).forEach(t => { if (t.id) used.add(t.id); });
+    let n = Math.max(Date.now(), lastIdN + 1), id;
     do { id = prefix + n.toString(36); n++; } while (used.has(id));
+    lastIdN = n - 1;
     return id;
   }
 
@@ -6403,9 +7642,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
                       order: DB.patterns.length + 1 }),
     note:    () => ({ id: newId('n'), text: '', desc: '', order: DB.notes.length + 1 }),
     mark:    () => ({ id: newId('mk'), label: '', color: '#ffd966', desc: '',
-                      order: (DB.marks || []).length + 1 }),
-    leave:   () => ({ id: newId('l'), staffId: (DB.staff[0] || {}).id || '',
-                      grantDate: '', grantDays: 10, usedDays: 0 })
+                      order: (DB.marks || []).length + 1 })
   };
 
   document.querySelectorAll('[data-add]').forEach(btn => {
@@ -6422,11 +7659,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         addToGroup_(DB.staff, group.pick, rec);
       } else {
         DB[LIST_OF[name]].push(rec);
-      }
-      // 社員を足したら有休の行も一緒に用意する。片方だけ増えると突き合わせができない
-      if (group) {
-        DB.leave.push({ id: newId('l'), staffId: rec.id, grantDate: '', grantDays: 0, usedDays: 0 });
-        renderMaster('leave');
       }
       // 店舗を足したら曜日7行も作り、その店舗を表示中にする。
       // 作らないと、新しい店は営業日を1日も持たない
@@ -6455,10 +7687,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { key: 'needPharmA', label: '薬剤師', type: 'num', unit: '人', min: 1, max: 15 },
       { key: 'needDocB', label: '医師', type: 'num', unit: '人のとき', min: 2, max: 15 },
       { key: 'needPharmB', label: '薬剤師', type: 'num', unit: '人（これより医師が多い日は同じ比）', min: 1, max: 15 },
-      { key: 'baseMinPharm', label: '土台（医師数−1）の最低', type: 'num', unit: '人', min: 1, max: 6 },
-      { note: '**配り方:** まず全日に 医師数−1 人（最低は上の人数）を置き、1人目を早番、2人目を遅番、'
-             + '3人目を遅半にします。残りの出勤は「必要人数 − 埋まった人数」が大きい日から1人ずつ足し、'
-             + '配りきったら止めます。4人目からは 遅番 → 遅半 → 遅番 → 早番 の順です。' },
+      { key: 'baseMinPharm', label: '土台（医師数と同じ）の最低', type: 'num', unit: '人', min: 1, max: 6 },
+      { note: '**配り方:** まず全日に医師数と同じ人数（最低は上の人数）を置きます（月〜土 → 日曜）。'
+             + '残りの出勤は 3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜 の順に1人ずつ足し、余ればもう一巡して、'
+             + '配りきったら止めます。出勤が足りない月は日曜から減らします。'
+             + '記号は 1人目が早番、2・3人目が遅番、4人目から 遅半 → 遅半 → 遅番 → 早番 → 遅番 … の順です。' },
       { note: '薬剤師の記号は人数で決まるので、早番・遅半・遅番の人数の設定はありません。'
              + '下は事務員だけに効きます。' },
       { key: 'clerkEarlyN', label: '事務員の○早番', type: 'num', unit: '人/日', min: 0, max: 6 },
@@ -6502,6 +7735,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     { title: '連続と休み', items: [
       { key: 'maxConsDefault', label: '連続出勤の上限（既定値）', type: 'num', unit: '日', min: 1, max: 14 },
       { note: '連続出勤の上限は社員ごとに社員マスタで設定します。ここは、その欄が空の人にだけ使う値です。' },
+      { key: 'softCons', label: '連続出勤の目安（なるべくこの日数まで）', type: 'num', unit: '日', min: 0, max: 14 },
+      { note: '自動生成は、まずこの日数までの連勤で組みます。それでは出勤日数が足りない人だけ、'
+             + '上限まで延ばします（公休ノルマと週の勤務日数のほうを守るため）。0 にすると使いません。' },
       { key: 'wishMax', label: '希望休の上限', type: 'num', unit: '日/月（1人あたり）', min: 0, max: 31 },
       { note: '希望休がこの日数を超えた人は、表の下のチェックに出ます（入力は止めません）。' },
       { note: '**前月末の連勤は必ず引き継ぎます**（切り替えはありません）。引き継がないと、'
@@ -6629,12 +7865,23 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     // 選んでいたスタンプがマスタから消えていたら、先頭に寄せる
     const stillThere = groups.some(g =>
       g.kind === stamp.kind && g.items.some(it => it.value === stamp.value));
-    if (stamp.kind !== 'clear' && !stillThere) {
+    const isTool = stamp.kind === 'clear' || stamp.kind === 'cycle' || stamp.kind === 'none';
+    if (!isTool && !stillThere) {
       const first = groups.find(g => g.items.length);
       stamp = first ? { kind: first.kind, value: first.items[0].value }
                     : { kind: 'clear', value: '' };
       openGroup = stamp.kind === 'clear' ? null : stamp.kind;
     }
+
+    /**
+     * 左端に道具を2つ置く（畳まない）。
+     *   スタンプなし … マウスの置き場（既定）。押すとスタンプが外れ、セルを押しても選ぶだけになる
+     *   順送り … 押すたびに記号が進む（VBA 版の「切替」と同じ）
+     */
+    host.appendChild(stampButton('none', { value: '', face: '−', sub: 'スタンプなし',
+      hint: 'スタンプを外す。セルを押しても書き換えません（マウスの置き場）' }));
+    host.appendChild(stampButton('cycle', { value: '', face: '↻', sub: '順送り',
+      hint: 'スタッフ欄を押すたびに 空 → ' + byOrder(DB.patterns).map(p => p.sym).join(' → ') + ' → 空' }));
 
     groups.forEach(g => {
       if (!g.items.length) return;
@@ -6710,8 +7957,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     b.addEventListener('click', () => {
       stamp = { kind: kind, value: it.value };
       updatePaletteState();
-      // 押した先が選ばれていれば、そのまま反映する
-      if (sel) applyStamp(sel.r, sel.c, stamp);
+      // 押した先が選ばれていれば、そのまま反映する。
+      // 順送り・スタンプなしは道具なので反映しない（選んだだけで記号が進むと困る）
+      if (sel && kind !== 'cycle' && kind !== 'none') applyStamp(sel.r, sel.c, stamp);
     });
     return b;
   }
@@ -6805,17 +8053,61 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /* ═══ 操作の受け口 ═══════════════════════════════════════ */
+  // 表の下（凡例・注記・チェック）は、はじめたたむ。開いたかどうかはこの端末に覚える
+  const FOOT_OPEN_KEY = 'shiftgrid.footOpen';
+  (function wireGridFoot_() {
+    const d = $('gridFoot');
+    if (!d) return;
+    d.open = viewFlag_(FOOT_OPEN_KEY, false);
+    d.addEventListener('toggle', () => {
+      setViewFlag_(FOOT_OPEN_KEY, d.open);
+      if (d.open) d.scrollIntoView({ block: 'start' });
+      else window.scrollTo(0, 0);
+    });
+  })();
   $('grid').addEventListener('click', ev => {
     const fold = ev.target.closest('button.docfold');
     if (fold) {
-      try { localStorage.setItem(DOC_FOLD_KEY, docFolded_() ? '0' : '1'); } catch (e) { /* 見え方だけ */ }
+      setViewFlag_(DOC_FOLD_KEY, !docFolded_());
       const box = document.querySelector('#grid .gpart.doc');
       if (box) box.classList.toggle('folded', docFolded_());
-      fold.textContent = (docFolded_() ? '▸' : '▾') + ' 医師の人数';
-      fold.title = docFolded_() ? '医師名欄を開く' : '医師名欄をたたむ（人数の行だけ残す）';
+      fold.replaceWith(docFoldButton_());
+      return;
+    }
+    // 下の集計をたたむ・開く（過不足の行だけ残す）
+    const af = ev.target.closest('button.aggfold');
+    if (af) {
+      setViewFlag_(AGG_FOLD_KEY, !aggFolded_());
+      const box = document.querySelector('#grid .gpart.agg');
+      if (box) box.classList.toggle('folded', aggFolded_());
+      af.replaceWith(aggFoldButton_());
+      return;
+    }
+    // 薬剤師・派遣・事務の群をたたむ・開く。表は描き直さない（スクロール位置を動かさない）
+    const gf = ev.target.closest('button.grpfold');
+    if (gf) {
+      const role = gf.dataset.role;
+      const folded = !groupFolded_().has(role);
+      setGroupFolded_(role, folded);
+      document.querySelectorAll('#grid tr[data-role="' + role + '"]').forEach(tr => tr.classList.toggle('gfold', folded));
+      const row = ROWS.find(r => r.role === role && (r.kind === 'repeat' || r.kind === 'band'));
+      if (row) gf.replaceWith(groupHeadCell_('td', row).firstChild);
+      // たたんだ群のセルを選んでいたら、選択を外す（見えないセルにスタンプを押さない）
+      if (folded && sel && ROWS[sel.r] && ROWS[sel.r].role === role && ROWS[sel.r].kind === 'staff') {
+        document.querySelectorAll('td.cell.sel').forEach(e => e.classList.remove('sel'));
+        sel = null;
+        updatePaletteState();
+      }
       return;
     }
     const cell = ev.target.closest('td.cell');
+    if (swapMode) {
+      // 入れ替え中は、押した行の人を相手にする（日のセルでなく氏名を押してもよい）
+      const tr = ev.target.closest('tr[data-row]');
+      if (cell) swapClick_(Number(cell.dataset.row), Number(cell.dataset.col));
+      else if (tr && swapMode.b !== undefined) swapClick_(Number(tr.dataset.row), swapMode.a);
+      return;
+    }
     if (!cell) return;
     const r = Number(cell.dataset.row), c = Number(cell.dataset.col);
     const isText = cell.classList.contains('text');
@@ -6866,10 +8158,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (inText && (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight')) return;
 
     let r = sel.r, c = sel.c;
+    const folded = groupFolded_();   // たたんだ群の行は飛ばす（見えないセルに移らない）
     do {
       r += move[0]; c += move[1];
       if (c < 0 || c >= DAY_COLS || r < 0 || r >= ROWS.length) return;
-    } while (!isInput(ROWS[r]) || !days[c].inMonth);
+    } while (!isInput(ROWS[r]) || !days[c].inMonth || (ROWS[r].kind === 'staff' && folded.has(ROWS[r].role)));
     select(r, c, ROWS[r].kind !== 'staff');
     ev.preventDefault();
   });
@@ -6890,6 +8183,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     undoStat_(done ? 'いまの状態を控えました' : '前回の控えから変わっていません');
   });
   $('undoBtn').addEventListener('click', undoOnce_);
+  $('swapBtn').addEventListener('click', () => { if (swapMode) endSwap_('入れ替えをやめました'); else startSwap_(); });
+  document.addEventListener('keydown', ev => {
+    if (swapMode && ev.key === 'Escape') { endSwap_('入れ替えをやめました'); ev.preventDefault(); }
+  });
   $('redoBtn').addEventListener('click', redoOnce_);
   // 全部の月を消すと取り返しがつかない。開いている月だけにする
   /**
@@ -6930,6 +8227,49 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     renderGrid();
     renderHistory();
   });
+  /**
+   * 月のダイアルで年をまたぐ。**ダイアルで1つ動いたときだけ**（12 → 13、1 → 0）。
+   *   12 → 13 … 翌年の 1 月
+   *    1 →  0 … 前年の 12 月
+   * それ以外の範囲外（打ち込んだ 0 や 14）は 1〜12 に収める。
+   * 「09」と打とうとして先に 0 を打ったときに、前年へ飛ばないようにするため。**数を受けて数を返すだけ。**
+   * @param {number} y いまの年
+   * @param {number} m 入力欄の月（範囲外もありうる）
+   * @param {number} prev 動かす前の月
+   * @return {{y:number, m:number}}
+   */
+  function rollYm_(y, m, prev) {
+    y = Math.round(Number(y)); m = Math.round(Number(m)); prev = Math.round(Number(prev));
+    if (!Number.isFinite(y) || !Number.isFinite(m)) return { y: y, m: m };
+    if (m === 13 && prev === 12) return { y: y + 1, m: 1 };
+    if (m === 0 && prev === 1) return { y: y - 1, m: 12 };
+    return { y: y, m: Math.min(12, Math.max(1, m)) };
+  }
+  let mmPrev = null;                                // 動かす前の月
+  $('mm').addEventListener('focus', () => { mmPrev = Number($('mm').value); });
+  // ダイアル（▲▼・上下キー）で 13 / 0 になった瞬間に年をまたぐ。表を描き直すのは下の change
+  $('mm').addEventListener('input', ev => {
+    const raw = $('mm').value;
+    if (raw === '') return;                       // 打ち直している途中
+    const prev = mmPrev === null ? Number(raw) : mmPrev;
+    // キーで打っている途中（1月に「02」と打つつもりの「0」など）は年をまたがない。ダイアルの入力は inputType が空
+    const typed = /^(insert|delete)/.test(ev.inputType || '') && ev.inputType !== 'insertReplacementText';
+    if (!typed && ((raw === '13' && prev === 12) || (raw === '0' && prev === 1))) {
+      const r = rollYm_($('yy').value, raw, prev);
+      $('mm').value = r.m;
+      $('yy').value = r.y;
+      mmPrev = r.m;
+      return;
+    }
+    if (Number(raw) >= 1 && Number(raw) <= 12) mmPrev = Number(raw);
+  });
+  // 打ち終えたら 1〜12 に収める（0 や 14 を打ったまま離れたとき）
+  $('mm').addEventListener('change', () => {
+    const r = rollYm_($('yy').value, $('mm').value, NaN);
+    if ($('mm').value !== '' && String(r.m) !== $('mm').value) $('mm').value = r.m;
+    mmPrev = Number($('mm').value);
+  });
+
   // 保存の単位は「店舗 × 年月」。切り替えたら、その月をサーバから読み直す
   ['yy', 'mm'].forEach(id => $(id).addEventListener('change', () => {
     renderGrid();
@@ -7346,7 +8686,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     Object.keys(bk.raw || {}).forEach(k => { if (bk.raw[k]) values.set(k, String(bk.raw[k])); });
     syncActiveStore();
     save();
-    Object.keys(COLS).forEach(renderMaster);
+    renderAllMasters_();
     renderRules();
     renderMemoDefault();
     refreshAll();
@@ -7363,7 +8703,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     // 全部を要求すると、試したいものだけ差し替えることができない
     const KEYS = ['stores', 'hours', 'closures', 'holidays', 'demand',
                   'staff', 'doctors', 'patterns', 'notes', 'leave', 'rules', 'marks',
-                  'memoDefault', 'finalized', 'outColors'];
+                  'memoDefault', 'finalized', 'outColors', 'leaveTx', 'leaveLedgerV'];
     const present = master ? KEYS.filter(k => master[k] !== undefined) : [];
     if (!present.length && !parsed.shift) {
       dataStat('中身が見つかりません。' + KEYS.join(' / ') + ' か shift を含めてください。');
@@ -7382,6 +8722,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     DB.schemaVersion = master.schemaVersion === undefined
       ? (parsed.schemaVersion === undefined ? 1 : parsed.schemaVersion)
       : master.schemaVersion;
+    // 有休を前の形（取引票の無い書き出し）で貼られたら、付与票・取引票へ移し直す
+    if (present.indexOf('leave') >= 0 && master.leaveLedgerV === undefined) DB.leaveLedgerV = 0;
     migrateDb_(DB);        // 古い版の書き出しを貼られても動くようにする
     if (present.indexOf('stores') >= 0) syncActiveStore();
     renderMemoDefault();
@@ -7396,7 +8738,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       const p = String(parsed.targetMonth).split('-');
       if (p.length === 2) { $('yy').value = Number(p[0]); $('mm').value = Number(p[1]); }
     }
-    Object.keys(COLS).forEach(renderMaster);
+    renderAllMasters_();
     renderRules();
     refreshAll();
 
@@ -7443,7 +8785,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     DB = seedDb();
     save();
     values.clear();
-    Object.keys(COLS).forEach(renderMaster);
+    renderAllMasters_();
     renderRules();
     refreshAll();
     autoGenerate();
@@ -7588,7 +8930,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   const MORE_KEY = 'shiftgrid.toolbar2.v1';
   function syncMore_(open) {
-    $('toolbar2').classList.toggle('hide', !open);
     $('palettebar').classList.toggle('hide', !open);
     $('toolMore').textContent = '操作 ' + (open ? '▴' : '▾');
     $('toolMore').setAttribute('aria-expanded', String(open));
@@ -7601,10 +8942,18 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const narrow = window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
     syncMore_(saved === null ? !narrow : saved === '1');
   })();
-  $('toolMore').addEventListener('click', () =>
-    syncMore_($('toolbar2').classList.contains('hide')));
+  $('toolMore').addEventListener('click', () => {
+    syncMore_($('palettebar').classList.contains('hide'));
+    fitScreen_();     // スタンプの段の高さぶん、表を伸び縮みさせる
+  });
+  // 使い方の段は、押したときだけ出す（いつも出すと表の高さを食う）
+  $('tipsBtn').addEventListener('click', () => {
+    const tb = $('toolbar2');
+    tb.hidden = !tb.hidden;
+    $('tipsBtn').setAttribute('aria-expanded', String(!tb.hidden));
+    fitScreen_();
+  });
 
-  window.addEventListener('beforeprint', fitPrint_);
   window.addEventListener('beforeprint', renderPrintSheet_);   // Ctrl+P でも紙の表を組む
 
   $('memoDefault').addEventListener('input', () => {
@@ -7645,6 +8994,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (btn.dataset.tab === 'history') renderHistory();
     // シフトが入ったかどうかで「しまう」と × が入れ替わるので、開くたびに描き直す
     if (btn.dataset.tab === 'staff') renderMaster('staff');
+    // 社員マスタで入社日を入れたあとに開いたとき、付与日を埋め直す
+    if (btn.dataset.tab === 'leave') renderLeave_();   // 入社日・週の日数の変更を反映
     if (btn.dataset.tab === 'outcolor') renderOutColors_();
     if (btn.dataset.tab === 'grid') fitScreen_();     // 隠れていたあいだは高さを測れない
   });
@@ -7683,7 +9034,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    *
    * 自前で PDF を組む道もあるが、日本語の埋め込みフォントが要る。
    * 1ファイルで配る作りなので、フォントを抱えると数MBになる。
-   * 印刷経路なら fitPrint_ の倍率もそのまま効く。
    *
    * 保存名はブラウザが document.title から作る。刷るあいだだけ差し替える。
    */
@@ -8047,11 +9397,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     /* 社員（薬剤師 → 派遣 → 事務。帯は入れない。見本と同じ） */
     const staffAt = { pharm: [], dispatch: [], clerk: [] };
-    tm.groups.forEach(g => g.rows.forEach(p => {
+    // 区分ごとの縞。氏名はテーマの色、シフトの欄は 1行目 = 薄い色 / 2行目 = 白（bandOf_）。右の集計も同じ
+    const zebra = {};
+    tm.groups.forEach(g => g.rows.forEach((p, k) => {
       const r = add(T.H_ROW);
+      const z = bandOf_(k, g.role, K);
+      zebra[r.n] = z;
       put(r, 0, p.name, { bd: 'all', bg: K.NAME_BG[g.role] || null });
       p.cells.forEach((x, c) => put(r, c + 1, x.v,
-        { bd: 'all', bg: x.bg || (x.na || !tm.days[c].inMonth ? K.GREY : K.ROW_BG[g.role] || null) }));
+        { bd: 'all', bg: x.bg || (x.na || !tm.days[c].inMonth ? K.GREY : z) }));
       sep(r);
       staffAt[g.role].push(r.n);
     }));
@@ -8104,7 +9458,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         const f = syms ? countSyms(range, syms)
           : cc.work.map(w => 'COUNTIFS($' + L(1) + '$' + aggAt.doc + ':$' + L(DAY_COLS) + '$' + aggAt.doc
             + ',' + q('>=' + cc.busyN) + ',' + range + ',' + q(w) + ')').join('+');
-        put(r, AGG0 + i, '', { bd: i === 0 ? 'left' : 'none' }, { f: f });
+        put(r, AGG0 + i, '', { bd: i === 0 ? 'left' : 'none', bg: zebra[n] || null }, { f: f });
       });
     });
 
@@ -8211,12 +9565,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     { key: 'holiday',   group: '日付・曜日', label: '祝日',           def: '#FFC000',
       note: '日曜に重なった祝日は日曜の色' },
     { key: 'grey',      group: '日付・曜日', label: '月の外・仕切り・出られない日', def: '#D0CECE' },
-    { key: 'pharmName', group: '薬剤師',     label: '氏名の欄',       def: '#E2EFDA' },
-    { key: 'pharmRow',  group: '薬剤師',     label: 'シフトの欄',     def: '' },
-    { key: 'dispName',  group: '派遣',       label: '氏名の欄',       def: '#DDEBF7' },
-    { key: 'dispRow',   group: '派遣',       label: 'シフトの欄',     def: '#DDEBF7' },
-    { key: 'clerkName', group: '事務',       label: '氏名の欄',       def: '#FCE4D6' },
-    { key: 'clerkRow',  group: '事務',       label: 'シフトの欄',     def: '#FCE4D6' },
+    // 区分ごとのテーマの色。氏名の欄はこの色、シフトの欄は 1行目 = テーマより薄い色 / 2行目 = 白（区分ごとに数える）
+    { key: 'pharmName', group: '薬剤師',     label: 'テーマの色（氏名の欄）', def: '#E2EFDA' },
+    { key: 'pharmRow',  group: '薬剤師',     label: '1行目のシフトの欄（2行目は白）', def: '', auto: 'pharmName' },
+    { key: 'dispName',  group: '派遣',       label: 'テーマの色（氏名の欄）', def: '#DDEBF7' },
+    { key: 'dispRow',   group: '派遣',       label: '1行目のシフトの欄（2行目は白）', def: '', auto: 'dispName' },
+    { key: 'clerkName', group: '事務',       label: 'テーマの色（氏名の欄）', def: '#FCE4D6' },
+    { key: 'clerkRow',  group: '事務',       label: '1行目のシフトの欄（2行目は白）', def: '', auto: 'clerkName' },
     { key: 'inkEarly',  group: '集計の見出し（文字の色）', label: '○早番', def: '#FF0000', ink: true },
     { key: 'inkLate',   group: '集計の見出し（文字の色）', label: '▲遅番', def: '#4472C4', ink: true },
     { key: 'inkMid',    group: '集計の見出し（文字の色）', label: '●遅半', def: '#70AD47', ink: true }
@@ -8224,22 +9579,60 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   /**
    * 保存された色（DB.outColors）を、組み立てに使う形にする。**配列とオブジェクトだけ見る**（DOM・DB を見ない）。
+   *   1行目のシフトの欄（auto のある項目）は、保存が無ければ**テーマの色より薄い色**（lightOf_）
    * @param {Object=} saved { key: '#RRGGBB' | '' }。無い項目は既定
-   * @return {{SAT, SUN, HOLIDAY, GREY, NAME_BG:Object, ROW_BG:Object, HEAD_INK:Object}} 塗らない色は null
+   * @return {{SAT, SUN, HOLIDAY, GREY, NAME_BG:Object, ROW_BG:Object, HEAD_INK:Object, FLAT:Object}}
+   *   塗らない色は null。FLAT は項目ごとの色（画面に出す用）
    */
   function outColorsOf_(saved) {
     const v = {};
-    OUT_COLOR_ITEMS.forEach(it => {
+    OUT_COLOR_ITEMS.forEach(it => {      // テーマの色（auto の元）は、いつも auto の項目より前に並べてある
       const x = saved && Object.prototype.hasOwnProperty.call(saved, it.key) ? saved[it.key] : undefined;
-      const val = x === '' ? '' : (typeof x === 'string' && /^#[0-9a-f]{6}$/i.test(x)) ? x : it.def;
+      let val;
+      if (x === '') val = '';
+      else if (typeof x === 'string' && /^#[0-9a-f]{6}$/i.test(x)) val = x;
+      // 自動: テーマの色に白を混ぜる。割合は「薄さ」のバー（<key>Mix）。無ければ既定の半々
+      else if (it.auto) val = v[it.auto] ? lightOf_(v[it.auto], mixOf_(saved && saved[it.key + 'Mix'])) : '';
+      else val = it.def;
       v[it.key] = val ? val.toUpperCase() : null;
     });
     return {
       SAT: v.sat, SUN: v.sun, HOLIDAY: v.holiday, GREY: v.grey,
       NAME_BG: { pharm: v.pharmName, dispatch: v.dispName, clerk: v.clerkName },
       ROW_BG: { pharm: v.pharmRow, dispatch: v.dispRow, clerk: v.clerkRow },
-      HEAD_INK: { '○早番': v.inkEarly, '▲遅番': v.inkLate, '●遅半': v.inkMid }
+      HEAD_INK: { '○早番': v.inkEarly, '▲遅番': v.inkLate, '●遅半': v.inkMid },
+      FLAT: v
     };
+  }
+
+  /** 薄さ（白を混ぜる割合）の既定と範囲。0 = テーマの色そのもの、1 = 白 */
+  const OUT_MIX_DEFAULT = 0.5, OUT_MIX_MAX = 0.9;
+  /** 保存された薄さを読む。読めなければ既定 */
+  const mixOf_ = v => (typeof v === 'number' && v >= 0 && v <= OUT_MIX_MAX) ? v : OUT_MIX_DEFAULT;
+
+  /**
+   * テーマの色より薄い色。白を t の割合で混ぜる（t = 0.5 なら半々: #E2EFDA → #F1F7ED）。
+   * @param {string} hex '#RRGGBB'
+   * @param {number=} t 白を混ぜる割合（0〜1）。省略すると既定
+   */
+  function lightOf_(hex, t) {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+    if (!m) return '';
+    const k = typeof t === 'number' ? Math.min(1, Math.max(0, t)) : OUT_MIX_DEFAULT;
+    return '#' + [1, 2, 3].map(i => {
+      const c = parseInt(m[i], 16);
+      return Math.round(c + (255 - c) * k).toString(16).padStart(2, '0');
+    }).join('').toUpperCase();
+  }
+
+  /**
+   * 区分の中の何行目かで、シフトの欄の色を決める。**区分ごとに数える**（薬剤師の1行目、派遣の1行目…）。
+   *   1行目・3行目… → その区分の「1行目のシフトの欄」の色（既定はテーマより薄い色）
+   *   2行目・4行目… → 白（null）
+   * 印の色・出られない日の灰は、呼ぶ側でこれより先に当てる。
+   */
+  function bandOf_(k, role, K) {
+    return k % 2 === 0 ? (K.ROW_BG[role] || null) : null;
   }
 
   /** 日付・曜日の欄の色（Excel と紙で同じ）。日曜 / 祝日（日曜でなければ）/ 土曜 / 月の外 */
@@ -8295,7 +9688,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       + (safeColor_(bg) ? ' style="background:' + safeColor_(bg) + '"' : '') + '>' + esc(v === null || v === undefined ? '' : v) + '</td>';
     const sym = v => (String(v).length > 1 ? 'b sm' : 'b');    // 「公休」など2文字は小さく
     const sep = () => td('', 'b', K.GREY);
-    const aggCells = vals => cc.aggHeads.map((h, i) => td(vals ? vals[i] : '', i === 0 ? 'l' : '')).join('');
+    const aggCells = (vals, bg) => cc.aggHeads.map((h, i) => td(vals ? vals[i] : '', i === 0 ? 'l' : '', bg)).join('');
     const blankAgg = '<td></td>'.repeat(nAgg);           // 表の下（備考・集計）は線を引かない
     // 氏名・集計名は長いほど小さく（欄の幅は Excel と同じで固定）
     const nmCls = t => { const n = String(t).length; return 'b nm' + (n > 9 ? ' xxs' : n > 6 ? ' xs' : n > 5 ? ' s' : ''); };
@@ -8313,10 +9706,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     tm.doctors.forEach(vals => rows.push('<tr>' + td('', 'r')
       + vals.map((v, c) => td(v, 'b doc', tm.days[c].inMonth ? null : K.GREY)).join('') + sep() + aggCells(null) + '</tr>'));
     dateRow('', true);
-    tm.groups.forEach(g => g.rows.forEach(p => {
+    tm.groups.forEach(g => g.rows.forEach((p, k) => {   // 区分ごとの縞（Excel と同じ）
+      const z = bandOf_(k, g.role, K);
       rows.push('<tr>' + td(p.name, nmCls(p.name), K.NAME_BG[g.role] || null)
-        + p.cells.map((x, c) => td(x.v, sym(x.v), x.bg || (x.na || !tm.days[c].inMonth ? K.GREY : K.ROW_BG[g.role] || null))).join('')
-        + sep() + aggCells(p.agg) + '</tr>');
+        + p.cells.map((x, c) => td(x.v, sym(x.v), x.bg || (x.na || !tm.days[c].inMonth ? K.GREY : z))).join('')
+        + sep() + aggCells(p.agg, z) + '</tr>');
     }));
     rows.push('<tr>' + td('備考', 'note') + Array.from({ length: DAY_COLS }, (_, c) => td(tm.note[c] || '', 'note')).join('')
       + '<td></td>' + blankAgg + '</tr>');
@@ -8382,51 +9776,194 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       heads.map(h => '<td class="ah"' + (safeColor_(K.HEAD_INK[h]) ? ' style="color:' + safeColor_(K.HEAD_INK[h]) + '"' : '') + '>'
         + esc(h) + '</td>').join('')));
     const sample = [
-      ['pharm', '薬剤師', ['公休', '○', '▲', '●', '▲', '公休', '▲']],
-      ['dispatch', '派遣', ['', '▲', '●', '', '', '', '▲']],
-      ['clerk', '事務', ['○', '公休', '▲', '○', '▲', '公休', '○']]
+      ['pharm', '薬剤師 A', ['公休', '○', '▲', '●', '▲', '公休', '▲']],
+      ['pharm', '薬剤師 B', ['▲', '公休', '○', '▲', '●', '▲', '公休']],
+      ['dispatch', '派遣 1', ['', '▲', '●', '', '', '', '▲']],
+      ['dispatch', '派遣 2', ['●', '', '▲', '', '▲', '', '']],
+      ['clerk', '事務 A', ['○', '公休', '▲', '○', '▲', '公休', '○']],
+      ['clerk', '事務 B', ['公休', '○', '○', '▲', '公休', '○', '▲']]
     ];
+    const seen = {};                           // 区分の中で何行目か
     sample.forEach(x => {
       const role = x[0];
-      out.push(row(td(x[1], K.NAME_BG[role], 'nm') + ds.map((d, c) => {
+      const k = seen[role] = (seen[role] === undefined ? 0 : seen[role] + 1);
+      const z = bandOf_(k, role, K);
+      out.push(row(td(x[1], K.NAME_BG[role] || null, 'nm') + ds.map((d, c) => {
         if (!d.inMonth) return td('', K.GREY);
         if (role === 'dispatch' && d.dow === 5) return td('', K.GREY);   // 出られない日
-        return td(x[2][c], K.ROW_BG[role]);
-      }).join(''), heads.map(() => td('3', null, 'off')).join('')));
+        return td(x[2][c], z);
+      }).join(''), heads.map(() => td('3', z, 'off')).join('')));
     });
     return '<table>' + out.join('') + '</table>';
   }
 
   /** 「出力の色」タブを組む。色を変えたらすぐ保存し、見本を描き直す */
+  /**
+   * Excel の「塗りつぶしの色」と同じ並びの色（Office の既定のテーマ。Excel 2013〜365）。
+   * **Excel で後から色を直す人が、同じ位置で同じ色を見つけられる**ようにするため。
+   * 1段目がテーマの基本の色、2〜4段目が明るく（80%・60%・40%）、5〜6段目が暗く（25%・50%）。
+   * 列は 白 / 黒 / 灰（背景2）/ 紺（テキスト2）/ 青 / 橙 / 灰 / 金 / 水色 / 緑。
+   */
+  const EXCEL_THEME_COLORS = Object.freeze([
+    ['#FFFFFF', '#000000', '#E7E6E6', '#44546A', '#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47'],
+    ['#F2F2F2', '#7F7F7F', '#D0CECE', '#D6DCE4', '#D9E1F2', '#FCE4D6', '#EDEDED', '#FFF2CC', '#DDEBF7', '#E2EFDA'],
+    ['#D9D9D9', '#595959', '#AEAAAA', '#ACB9CA', '#B4C6E7', '#F8CBAD', '#DBDBDB', '#FFE699', '#BDD7EE', '#C6E0B4'],
+    ['#BFBFBF', '#404040', '#757171', '#8497B0', '#8EA9DB', '#F4B084', '#C9C9C9', '#FFD966', '#9BC2E6', '#A9D08E'],
+    ['#A6A6A6', '#262626', '#3A3838', '#333F4F', '#305496', '#C65911', '#7B7B7B', '#BF8F00', '#2F75B5', '#548235'],
+    ['#808080', '#0D0D0D', '#171616', '#222B35', '#203764', '#833C0B', '#525252', '#806000', '#1F4E78', '#375623']
+  ]);
+  /** Excel の「標準の色」 */
+  const EXCEL_STD_COLORS = Object.freeze(['#C00000', '#FF0000', '#FFC000', '#FFFF00', '#92D050',
+    '#00B050', '#00B0F0', '#0070C0', '#002060', '#7030A0']);
+  /**
+   * 2〜6段目の言い方（Excel の色の名前の後ろの部分）。**白・黒・灰（背景2）の列だけ段が違う。**
+   *   白の列 … 黒 + 基本色 5/15/25/35/50%
+   *   黒の列 … 白 + 基本色 50/35/25/15/5%
+   *   灰の列 … 黒 + 基本色 10/25/50/75/90%
+   *   ほか   … 白 + 基本色 80/60/40%、黒 + 基本色 25/50%
+   */
+  const EXCEL_TINT_ROWS = ['', '白 + 基本色 80%', '白 + 基本色 60%', '白 + 基本色 40%', '黒 + 基本色 25%', '黒 + 基本色 50%'];
+  const EXCEL_TINT_COLS = Object.freeze({
+    0: ['', '黒 + 基本色 5%', '黒 + 基本色 15%', '黒 + 基本色 25%', '黒 + 基本色 35%', '黒 + 基本色 50%'],
+    1: ['', '白 + 基本色 50%', '白 + 基本色 35%', '白 + 基本色 25%', '白 + 基本色 15%', '白 + 基本色 5%'],
+    2: ['', '黒 + 基本色 10%', '黒 + 基本色 25%', '黒 + 基本色 50%', '黒 + 基本色 75%', '黒 + 基本色 90%']
+  });
+
+  /** その色が Excel の一覧のどこにあるか（見つけ方の説明）。無ければ '' */
+  function excelPlaceOf_(hex) {
+    const h = String(hex || '').toUpperCase();
+    for (let r = 0; r < EXCEL_THEME_COLORS.length; r++) {
+      const c = EXCEL_THEME_COLORS[r].indexOf(h);
+      if (c >= 0) return 'テーマの色 ' + (c + 1) + '列目' + (r ? '・' + (EXCEL_TINT_COLS[c] || EXCEL_TINT_ROWS)[r] : '（いちばん上）');
+    }
+    const k = EXCEL_STD_COLORS.indexOf(h);
+    return k >= 0 ? '標準の色 ' + (k + 1) + '番目' : '';
+  }
+
+  /** 色コードを読む。'ff6d6d' も '#FF6D6D' も通す。読めなければ null */
+  function hexOf_(text) {
+    const t = String(text || '').trim().replace(/^#/, '');
+    return /^[0-9a-f]{6}$/i.test(t) ? '#' + t.toUpperCase() : null;
+  }
+
+  /** いま開いている色の一覧（項目のキー）。一度に1つだけ */
+  let ocOpen = '';
+
+  /** 「出力の色」タブを組む。色を選んだらすぐ保存し、見本を描き直す */
   function renderOutColors_() {
     const tb = $('ocTable');
     if (!tb) return;
     const saved = DB.outColors || {};
-    const head = '<thead><tr><th>区分</th><th>項目</th><th>色</th><th>塗らない</th><th></th></tr></thead>';
+    const head = '<thead><tr><th>区分</th><th>項目</th><th>色（押すと選べます）</th><th></th></tr></thead>';
+    const sw = (hex, on, title) => '<button type="button" class="ocsw' + (on ? ' on' : '') + '" data-occolor="'
+      + hex + '" style="background:' + hex + '" title="' + xmlEsc_(title) + '" aria-label="' + xmlEsc_(title) + '"></button>';
+    /** 開いた行の下に出すパレット（テーマの色・標準の色・色コード）。extra は先頭に足すボタン */
+    const palRow = (key, cur, extra) => '<tr class="ocpalrow" data-oc="' + xmlEsc_(key) + '"><td colspan="4"><div class="ocpal">'
+      + '<div class="ochead">テーマの色</div><div class="ocgrid">'
+      + EXCEL_THEME_COLORS.map((row, r) => row.map(hex => sw(hex, hex === cur,
+          hex + '（' + excelPlaceOf_(hex) + '）')).join('') + (r === 0 ? '<span class="ocgap"></span>' : '')).join('')
+      + '</div><div class="ochead">標準の色</div><div class="ocgrid">'
+      + EXCEL_STD_COLORS.map(hex => sw(hex, hex === cur, hex + '（' + excelPlaceOf_(hex) + '）')).join('')
+      + '</div><div class="ocfoot">' + extra
+      + '<label>色コード <input type="text" data-ochex value="' + (cur || '') + '" placeholder="#RRGGBB"'
+      + ' maxlength="7" size="9" spellcheck="false" autocomplete="off"></label>'
+      + '<button type="button" data-ochexgo>この色にする</button>'
+      + '<label>その他の色 <input type="color" data-ocother value="' + (cur || '#FFFFFF').toLowerCase() + '"></label>'
+      + '<button type="button" data-occlose>閉じる</button>'
+      + '</div></div></td></tr>';
+    const flat = outColorsOf_(saved).FLAT;   // 保存された値は、色として読めるものだけ（読めなければ既定・自動）
     const body = OUT_COLOR_ITEMS.map(it => {
-      const has = Object.prototype.hasOwnProperty.call(saved, it.key);
-      const none = has ? saved[it.key] === '' : it.def === '';
-      const cur = (has && saved[it.key]) || it.def || '#FFFFFF';
-      return '<tr data-oc="' + it.key + '">'
+      const hasMix = !!it.auto && Object.prototype.hasOwnProperty.call(saved, it.key + 'Mix');
+      const has = Object.prototype.hasOwnProperty.call(saved, it.key) || hasMix;
+      const cur = safeColor_(flat[it.key]) || '';
+      const auto = it.auto && !Object.prototype.hasOwnProperty.call(saved, it.key);   // テーマの色から自動で決めている
+      const place = cur ? excelPlaceOf_(cur) : '';
+      const face = cur
+        ? '<i class="occhip" style="background:' + cur + '"></i><span>' + cur + '</span>'
+          + (auto ? '<small>自動（テーマより薄い色）</small>'
+            : place ? '<small>Excel: ' + xmlEsc_(place) + '</small>'
+            : '<small>Excel: その他の色（16 進 ' + cur.slice(1) + '）</small>')
+        : '<i class="occhip none"></i><span>' + (it.ink ? '黒（色なし）' : it.auto ? '塗らない（全部の行が白）' : '塗らない') + '</span>';
+      let html = '<tr data-oc="' + it.key + '">'
         + '<td>' + xmlEsc_(it.group) + '</td>'
         + '<td>' + xmlEsc_(it.label) + (it.note ? '<div class="ocnote">' + xmlEsc_(it.note) + '</div>' : '') + '</td>'
-        + '<td><input type="color" value="' + xmlEsc_(cur.toLowerCase()) + '"' + (none ? ' disabled' : '')
-        + ' aria-label="' + xmlEsc_(it.group + ' ' + it.label) + '"></td>'
-        + '<td class="ocnone"><label><input type="checkbox"' + (none ? ' checked' : '') + '> '
-        + (it.ink ? '黒にする' : '塗らない') + '</label></td>'
+        + '<td><button type="button" class="ocpick" data-ocpick aria-expanded="' + (ocOpen === it.key) + '"'
+        + ' aria-label="' + xmlEsc_(it.group + ' ' + it.label + ' の色を選ぶ') + '">' + face + '</button>'
+        // 薄さのバー（1行目のシフトの欄だけ）。動かすと自動（テーマの色 + 薄さ）に戻る
+        + (it.auto ? (() => {
+            const pct = Math.round(mixOf_(saved[it.key + 'Mix']) * 100);
+            return '<label class="ocmix" title="テーマの色に白を混ぜる割合。0% = テーマの色、90% = ほぼ白">薄さ'
+              + '<input type="range" min="0" max="' + Math.round(OUT_MIX_MAX * 100) + '" step="5" value="' + pct + '" data-ocmix'
+              + ' aria-label="' + xmlEsc_(it.group + ' 1行目の薄さ') + '"><output>' + pct + '%</output></label>';
+          })() : '')
+        + '</td>'
         + '<td><button type="button" data-ocreset' + (has ? '' : ' disabled') + '>既定に戻す</button></td>'
         + '</tr>';
+      if (ocOpen === it.key) {
+        html += palRow(it.key, cur,
+          (it.auto ? '<button type="button" data-ocauto>自動（テーマの色より薄い色）</button>' : '')
+          + '<button type="button" data-occolor="">' + (it.ink ? '黒にする（色なし）' : '塗らない') + '</button>');
+      }
+      return html;
     }).join('');
-    tb.innerHTML = head + '<tbody>' + body + '</tbody>';
+    /**
+     * 色の印（パレットの「色」）。画面のスタンプと出力の両方がこの色を使う。
+     * 印は「塗らない」にはできない（色が無いと印の意味が無い）。名前や説明は備考マスタで直す。
+     */
+    const markRows = byOrder(DB.marks || []).filter(m => m.label).map(m => {
+      const key = 'mark:' + m.id;
+      const cur = (safeColor_(m.color) || '').toUpperCase();
+      const place = cur ? excelPlaceOf_(cur) : '';
+      const face = cur
+        ? '<i class="occhip" style="background:' + cur + '"></i><span>' + cur + '</span>'
+          + (place ? '<small>Excel: ' + xmlEsc_(place) + '</small>' : '<small>Excel: その他の色（16 進 ' + cur.slice(1) + '）</small>')
+        : '<i class="occhip none"></i><span>色なし</span>';
+      let html = '<tr data-oc="' + xmlEsc_(key) + '">'
+        + '<td>色の印（パレット）</td>'
+        + '<td>' + xmlEsc_(m.label) + (m.desc ? '<div class="ocnote">' + xmlEsc_(m.desc) + '</div>' : '') + '</td>'
+        + '<td><button type="button" class="ocpick" data-ocpick aria-expanded="' + (ocOpen === key) + '"'
+        + ' aria-label="' + xmlEsc_('色の印 ' + m.label + ' の色を選ぶ') + '">' + face + '</button></td>'
+        + '<td class="ocnote">名前は備考マスタ</td></tr>';
+      if (ocOpen === key) html += palRow(key, cur, '');   // 印は「塗らない」にできない
+      return html;
+    }).join('');
+    tb.innerHTML = head + '<tbody>' + body + markRows + '</tbody>';
     $('ocPreview').innerHTML = outColorPreview_(outColorsOf_(saved));
+    // 見本の下に、色の印の一覧（パレットと同じ色）
+    const legend = el('div', 'ocmarks');
+    byOrder(DB.marks || []).filter(m => m.label && safeColor_(m.color)).forEach(m => {
+      const one = el('span');
+      const i = el('i');
+      i.style.background = safeColor_(m.color);
+      one.appendChild(i);
+      one.appendChild(document.createTextNode(m.label));
+      legend.appendChild(one);
+    });
+    $('ocPreview').appendChild(legend);
   }
 
   /** 1項目を保存する。undefined なら既定に戻す */
   function setOutColor_(key, val) {
     try {
+      // 色の印は DB.marks に書く（画面のスタンプも同じ色を使う）。色の無い印にはしない
+      if (String(key).indexOf('mark:') === 0) {
+        const m = (DB.marks || []).find(x => 'mark:' + x.id === key);
+        const hex = safeColor_(val);
+        if (!m || !hex) { $('ocStat').textContent = '印の色は色コード（#RRGGBB）で選んでください'; return; }
+        m.color = hex.toUpperCase();
+        save();
+        ocOpen = '';
+        refreshAll();                          // 画面の表とパレットの色も変える
+        renderOutColors_();
+        $('ocStat').textContent = dbPersist ? '保存しました。画面のスタンプと次の出力が、この色になります'
+          : '保存できませんでした。ブラウザの保存領域を確認してください';
+        return;
+      }
       DB.outColors = Object.assign({}, DB.outColors || {});
-      if (val === undefined) delete DB.outColors[key]; else DB.outColors[key] = val;
+      if (val === undefined) { delete DB.outColors[key]; delete DB.outColors[key + 'Mix']; }   // 既定に戻す（薄さも）
+      else DB.outColors[key] = val;
       save();
+      ocOpen = '';
       renderOutColors_();
       $('ocStat').textContent = dbPersist ? '保存しました。次の出力から、この色で出ます'
         : '保存できませんでした。ブラウザの保存領域を確認してください';
@@ -8546,28 +10083,84 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   $('outPdf').addEventListener('click', exportPdf);
 
-  // 出力の色。色を選んでいるあいだ（input）も見本を追従させ、保存は change で1回だけ
+  // 出力の色。一覧の色を押せば決まる。「その他の色」は選んでいるあいだも見本を追従させ、保存は change で1回だけ
+  /** 薄さのバーの値で、その項目を「自動（テーマの色 + 薄さ）」にした色の設定を作る */
+  const withMix_ = (key, pct) => {
+    const o = Object.assign({}, DB.outColors || {});
+    delete o[key];                                   // 色を直接決めていたら、自動に戻す
+    o[key + 'Mix'] = Math.min(OUT_MIX_MAX, Math.max(0, Number(pct) / 100));
+    return o;
+  };
   $('ocTable').addEventListener('input', ev => {
     const ip = ev.target;
     const tr = ip.closest('tr[data-oc]');
-    if (!tr || ip.type !== 'color') return;
-    const tmp = Object.assign({}, DB.outColors || {}, { [tr.dataset.oc]: ip.value.toUpperCase() });
+    if (!tr) return;
+    if (ip.hasAttribute('data-ocmix')) {
+      const tmp = withMix_(tr.dataset.oc, ip.value);
+      const hex = outColorsOf_(tmp).FLAT[tr.dataset.oc];
+      const out = ip.parentNode.querySelector('output');
+      if (out) out.textContent = ip.value + '%';
+      const chip = tr.querySelector('.occhip');
+      if (chip && hex) { chip.classList.remove('none'); chip.style.background = hex; }
+      const code = tr.querySelector('.ocpick span');
+      if (code && hex) code.textContent = hex;
+      $('ocPreview').innerHTML = outColorPreview_(outColorsOf_(tmp));
+      return;
+    }
+    const hex = ip.hasAttribute('data-ocother') ? ip.value.toUpperCase()
+      : ip.hasAttribute('data-ochex') ? hexOf_(ip.value) : null;
+    if (!hex) return;
+    const tmp = Object.assign({}, DB.outColors || {}, { [tr.dataset.oc]: hex });
     $('ocPreview').innerHTML = outColorPreview_(outColorsOf_(tmp));
+  });
+  /** 色コードの欄の値で決める */
+  function applyHex_(tr) {
+    const ip = tr.querySelector('input[data-ochex]');
+    const hex = hexOf_(ip && ip.value);
+    if (!hex) {
+      $('ocStat').textContent = '色コードは #FF6D6D のように 6 桁の 16 進で入れてください';
+      if (ip) ip.focus();
+      return;
+    }
+    setOutColor_(tr.dataset.oc, hex);
+  }
+  $('ocTable').addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter' || !ev.target.hasAttribute('data-ochex')) return;
+    ev.preventDefault();
+    applyHex_(ev.target.closest('tr[data-oc]'));
   });
   $('ocTable').addEventListener('change', ev => {
     const ip = ev.target;
     const tr = ip.closest('tr[data-oc]');
-    if (!tr) return;
-    const key = tr.dataset.oc;
-    if (ip.type === 'color') setOutColor_(key, ip.value.toUpperCase());
-    else if (ip.type === 'checkbox') {
-      const col = tr.querySelector('input[type=color]');
-      setOutColor_(key, ip.checked ? '' : (col.value || '#FFFFFF').toUpperCase());
+    if (tr && ip.hasAttribute('data-ocother')) setOutColor_(tr.dataset.oc, ip.value.toUpperCase());
+    if (tr && ip.hasAttribute('data-ocmix')) {
+      try {
+        DB.outColors = withMix_(tr.dataset.oc, ip.value);
+        save();
+        renderOutColors_();
+        $('ocStat').textContent = dbPersist ? '保存しました。次の出力から、この色で出ます'
+          : '保存できませんでした。ブラウザの保存領域を確認してください';
+      } catch (e) {
+        console.error('[ocmix] ' + e.message + ' / ' + e.stack);
+        $('ocStat').textContent = '薄さを保存できませんでした: ' + e.message;
+      }
     }
   });
   $('ocTable').addEventListener('click', ev => {
-    const b = ev.target.closest('button[data-ocreset]');
-    if (b) setOutColor_(b.closest('tr[data-oc]').dataset.oc, undefined);
+    const tr = ev.target.closest('tr[data-oc]');
+    if (!tr) return;
+    const key = tr.dataset.oc;
+    if (ev.target.closest('button[data-ocreset]')) { setOutColor_(key, undefined); return; }
+    if (ev.target.closest('button[data-ocpick]')) {
+      ocOpen = ocOpen === key ? '' : key;
+      renderOutColors_();
+      return;
+    }
+    if (ev.target.closest('button[data-occlose]')) { ocOpen = ''; renderOutColors_(); return; }
+    if (ev.target.closest('button[data-ochexgo]')) { applyHex_(tr); return; }
+    if (ev.target.closest('button[data-ocauto]')) { setOutColor_(key, undefined); return; }   // 自動 = 既定に戻す
+    const pick = ev.target.closest('button[data-occolor]');
+    if (pick) setOutColor_(key, pick.dataset.occolor);   // '' は「塗らない」
   });
   $('ocResetAll').addEventListener('click', () => {
     try {
@@ -8826,7 +10419,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           DB = migrateDb_(res.data);
           activeStore = (DB.stores && DB.stores[0]) ? DB.stores[0].id : activeStore;
           openDefaultMonth_();
-          Object.keys(COLS).forEach(renderMaster);
+          renderAllMasters_();
           renderRules();
           renderMemoDefault();
           refreshAll();
@@ -8856,7 +10449,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       SYNC.dbRev = (c.got && c.got.rev) || 0;
       if (c.got && c.got.data) {
         DB = migrateDb_(c.got.data);
-        Object.keys(COLS).forEach(renderMaster);
+        renderAllMasters_();
         renderRules();
         renderMemoDefault();
         refreshAll();
@@ -9683,7 +11276,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   $('appVer').textContent = 'v' + APP_VERSION;
 
-  Object.keys(COLS).forEach(renderMaster);
+  renderAllMasters_();
   renderRules();
   renderMemoDefault();
 
