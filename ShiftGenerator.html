@@ -2572,7 +2572,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
   const storeNamesOf_ = list => (Array.isArray(list) && list.length)
     ? list.map(id => (DB.stores.find(t => t.id === id) || {}).name || id).join('・') : '全店';
-  /** 在籍の履歴を1行で（例: 2024-04〜2026-03 札幌店 ／ 2026-10〜 札幌店） */
+  /** 在籍の履歴を1行で（例: 2024-04〜2026-03 本店 ／ 2026-10〜 本店） */
   function tenureText_(s) {
     return periodsOf_(s).map(p => (p.from || '…') + '〜' + (p.to || '') + ' ' + storeNamesOf_(p.stores)).join(' ／ ');
   }
