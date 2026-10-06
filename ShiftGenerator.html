@@ -2,6 +2,24 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<!--
+  CSP（読み込んでよい先の制限）。このファイルは外へ一切通信しない作りなので、
+  通信・外部スクリプト・外部画像をすべて禁じておく。万一スクリプトを差し込まれても、
+  データ（氏名など）を外へ送れないようにするための多重防御。
+
+  **file:// で開いたときだけ掛ける。** Apps Script の Web アプリとして配信すると、
+  Google が自分のスクリプトを外部から読み込むため、静的な <meta> だと
+  それまで止めてしまう。動的に足した <meta> は、それ以降の読み込みに効く。
+-->
+<script>
+if (location.protocol === 'file:') (function () {
+  var csp = document.createElement('meta');
+  csp.httpEquiv = 'Content-Security-Policy';
+  csp.content = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+    + "img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'";
+  document.head.appendChild(csp);
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>薬局シフト表エディタ</title>
 <!--
@@ -1319,7 +1337,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.15.0';
+  const APP_VERSION = '1.15.1';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -1341,6 +1359,16 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     'hand:' + row.key + '|' + curYm + '|' + (days[c] ? days[c].day : c + 1);
   const isHand = (row, c) => values.get(handKey(row, c)) === '1';
   const markOf = id => (DB.marks || []).find(m => m.id === id) || null;
+  /**
+   * 色として通すのは `#rrggbb` だけ。それ以外は null。
+   * **取り込んだ JSON の色はそのまま信用しない。** 色は style 属性や xlsx の XML に
+   * 文字列として連結されるので、`red" onmouseover="…` のような値が入ると
+   * 属性を抜けてスクリプトが動く（印刷プレビューは innerHTML で組んでいる）。
+   * 関数宣言にしているのは、migrateDb_ など先に定義された処理からも呼ぶため。
+   */
+  function safeColor_(c) {
+    return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : null;
+  }
   /**
    * 前回の保存が通ったか。**通らなかったことを黙っていてはいけない。**
    * 画面は動き続けるので、利用者は保存できたと思ったまま作業を続けてしまう。
@@ -1707,6 +1735,12 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     ['stores', 'hours', 'closures', 'holidays', 'demand', 'marks'].forEach(k => {
       if (!Array.isArray(db[k]) || !db[k].length) db[k] = seed[k];
     });
+
+    // 印の色を検める。取り込み（データ書き出しタブ）・保存フォルダ・localStorage の
+    // どこから来た値でもここを通る。色として読めないものは「色なし」にする
+    db.marks = db.marks.filter(m => m && typeof m === 'object');
+    db.marks.forEach(m => { m.color = safeColor_(m.color) || ''; });
+    if (!db.marks.length) db.marks = seed.marks;
 
     // あとから足したルール。無ければ初期値
     db.rules = db.rules || {};
@@ -7479,7 +7513,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const sid = o => {
       const f = fontId({ name: o.fn || '游ゴシック', sz: o.sz || 11, b: o.b !== false, color: o.ink || '' });
       let fi = 0;
-      if (o.bg) {
+      if (safeColor_(o.bg)) {
         const hex = o.bg.toUpperCase();
         fi = fills.indexOf(hex);
         if (fi < 0) { fills.push(hex); fi = fills.length - 1; }
@@ -7671,7 +7705,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       '<numFmts count="1"><numFmt numFmtId="164" formatCode="0;[Red]\\-0"/></numFmts>',
       '<fonts count="' + fonts.length + '">',
       fonts.map(f => '<font>' + (f.b ? '<b/>' : '') + '<sz val="' + f.sz + '"/>'
-        + (f.color ? '<color rgb="FF' + f.color.slice(1).toUpperCase() + '"/>' : '')
+        + (safeColor_(f.color) ? '<color rgb="FF' + f.color.slice(1).toUpperCase() + '"/>' : '')
         + '<name val="' + xmlEsc_(f.name) + '"/></font>').join(''),
       '</fonts>',
       '<fills count="' + fills.length + '">',
@@ -7788,7 +7822,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const fontPt = Math.min(9, rowH * 2.835 * 0.6);           // 1mm = 2.835pt。行の6割
 
     const td = (v, cls, bg) => '<td' + (cls ? ' class="' + cls + '"' : '')
-      + (bg ? ' style="background:' + bg + '"' : '') + '>' + esc(v === null || v === undefined ? '' : v) + '</td>';
+      + (safeColor_(bg) ? ' style="background:' + safeColor_(bg) + '"' : '') + '>' + esc(v === null || v === undefined ? '' : v) + '</td>';
     const sym = v => (String(v).length > 1 ? 'b sm' : 'b');    // 「公休」など2文字は小さく
     const sep = () => td('', 'b', K.GREY);
     const aggCells = vals => cc.aggHeads.map((h, i) => td(vals ? vals[i] : '', i === 0 ? 'l' : '')).join('');
@@ -7800,7 +7834,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const dateRow = (head, withAgg) => rows.push('<tr>' + td(head, head ? 'b nm' : 'r')
       + tm.days.map(d => td(d.inMonth ? d.day : '', 'b dt', tplDayBg_(d, K))).join('') + sep()
       + (withAgg ? cc.aggHeads.map((h, i) => '<td class="ah' + (i === 0 ? ' l' : '') + '"'
-          + (K.HEAD_INK[h] ? ' style="color:' + K.HEAD_INK[h] + '"' : '') + '>' + esc(h) + '</td>').join('')
+          + (safeColor_(K.HEAD_INK[h]) ? ' style="color:' + safeColor_(K.HEAD_INK[h]) + '"' : '') + '>' + esc(h) + '</td>').join('')
         : aggCells(null)) + '</tr>');
 
     dateRow('', false);
@@ -7840,7 +7874,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       + '<div class="ps-foot"><div class="ps-legend">' + lines(legend) + '</div>'
       + '<div class="ps-memo">' + lines(tm.memo) + '</div></div>'
       + (tm.marks.length ? '<div class="ps-marks">' + tm.marks.map(k =>
-          '<span><i style="background:' + esc(k.color) + '"></i>' + esc(k.label) + '</span>').join('') + '</div>' : '')
+          '<span><i' + (safeColor_(k.color) ? ' style="background:' + safeColor_(k.color) + '"' : '') + '></i>' + esc(k.label) + '</span>').join('') + '</div>' : '')
       + '</div>';
   }
 
@@ -7867,7 +7901,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     // 1日（日）〜7日（土）。3日は祝日、8日は月の外
     const ds = Array.from({ length: 8 }, (_, i) => ({ day: i + 1, inMonth: i < 7, dow: i % 7, holiday: i === 2 }));
     const td = (v, bg, cls) => '<td' + (cls ? ' class="' + cls + '"' : '')
-      + (bg ? ' style="background:' + bg + '"' : '') + '>' + esc(v) + '</td>';
+      + (safeColor_(bg) ? ' style="background:' + safeColor_(bg) + '"' : '') + '>' + esc(v) + '</td>';
     const sep = td('', K.GREY);
     const heads = ['○早番', '▲遅番', '●遅半'];
     const row = (cells, tail) => '<tr>' + cells + sep + tail + '</tr>';
@@ -7875,7 +7909,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     out.push(row(td('', null, 'nm') + ds.map(d => td(d.inMonth ? d.day : '', tplDayBg_(d, K))).join(''),
       heads.map(() => td('', null, 'off')).join('')));
     out.push(row(td('', null, 'nm') + ds.map(d => td(d.inMonth ? DOW[d.dow] : '', tplDayBg_(d, K))).join(''),
-      heads.map(h => '<td class="ah"' + (K.HEAD_INK[h] ? ' style="color:' + K.HEAD_INK[h] + '"' : '') + '>'
+      heads.map(h => '<td class="ah"' + (safeColor_(K.HEAD_INK[h]) ? ' style="color:' + safeColor_(K.HEAD_INK[h]) + '"' : '') + '>'
         + esc(h) + '</td>').join('')));
     const sample = [
       ['pharm', '薬剤師', ['公休', '○', '▲', '●', '▲', '公休', '▲']],
