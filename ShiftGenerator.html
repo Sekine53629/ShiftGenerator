@@ -666,6 +666,28 @@ table.mt .tenure { font-size: 11px; padding: 2px 7px; margin-left: 3px; white-sp
   box-shadow: 0 8px 24px rgba(0, 0, 0, .3); font-size: 13px; font-weight: 600;
 }
 .toast[hidden] { display: none; }
+/*
+ * 処理中のグルグル。自動生成は画面を止めて一気に計算するので、回転は transform のアニメーション
+ * （ブラウザが計算と別に描く）にする。色や大きさを動かすアニメーションだと、計算中は止まって見える
+ */
+.busy {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .28); cursor: progress;
+}
+.busy[hidden] { display: none; }
+.busybox {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 30px;
+  background: var(--surface); color: var(--ink); border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, .3);
+}
+.spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 5px solid var(--rule-soft); border-top-color: var(--accent);
+  animation: busyspin .8s linear infinite; will-change: transform;
+}
+.busymsg { font-size: 13px; font-weight: 700; }
+@keyframes busyspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+@media print { .busy { display: none !important; } }
 @media print { .toast { display: none !important; } }
 .leavehow { margin: 0 0 6px; font-size: 12px; color: var(--ink-soft); }
 .leavehow > summary { cursor: pointer; width: max-content; }
@@ -1075,6 +1097,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 </dialog>
 <!-- 止めない知らせ（順送りのとき） -->
 <div id="toast" class="toast" role="alert" hidden></div>
+<!-- 時間のかかる作業のあいだの「処理中」。押せないように画面を覆う -->
+<div id="busy" class="busy" role="status" aria-live="polite" hidden>
+  <div class="busybox"><div class="spinner" aria-hidden="true"></div><div class="busymsg" id="busyMsg">処理中…</div></div>
+</div>
 
 <!-- 時間有休: 切り替え・使用 -->
 <dialog class="modal" id="ltxAsk">
@@ -1299,8 +1325,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       医師が増えるほど仕事量は増えますが、薬剤師が増えるほど仕事率も上がるので、
       医師数に対する薬剤師数はだんだん同じになります。<br>
       自動生成は、<b>まず全日に医師数と同じ人数（最低2人）を置き</b>（月〜土 → 日曜の順）、残りの出勤を
-      <b>3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜</b> の順に1人ずつ足して、配りきったら止めます。
-      出勤が足りない月は、日曜から減らします。
+      <b>医師シフトのある 月曜・土曜 → 平日 → 日曜 → 医師シフトのない日（月・土 → 平日 → 日曜）</b> の順に
+      1人ずつ足して、配りきったら止めます。出勤が足りない月は、逆の順（医師シフトのある日曜から）に減らします。
       差が同じ日どうしでは、日曜は後回しにします（患者さんが少ないため）。<br>
       <b>年末年始</b>は、休業日（12/30〜1/3）の仕事量を前後の日に振り分けます。
       12/30〜1/1 の3日分は前の3日へ、1/2〜1/3 の2日分は後ろの2日へ。
@@ -1644,7 +1670,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.21.0';
+  const APP_VERSION = '1.22.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -2942,6 +2968,40 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * confirm() は埋め込み枠の中だと出ないことがあり、押しても何も起きない
    * ように見えてしまうので使わない。
    */
+  /**
+   * 時間のかかる作業を、真ん中にグルグルを出してから動かす。
+   * 先に画面へグルグルを描かせてから（requestAnimationFrame を2回待つ）作業に入る。そのまま呼ぶと、
+   * 作業が終わるまで画面が描き直されず、グルグルが出ないまま終わる。
+   * 作業中に例外が出てもグルグルは必ず消す。入れ子で呼ばれたら、外側が終わるまで出したままにする。
+   * @param {string} msg 見せる文（例「自動生成しています…」）
+   * @param {function()} fn 作業
+   */
+  let busyDepth = 0;
+  function withBusy_(msg, fn) {
+    const box = $('busy');
+    if (!box) { fn(); return; }
+    busyDepth++;
+    $('busyMsg').textContent = msg || '処理中…';
+    box.hidden = false;
+    // 画面がグルグルを描いたら（次の次の描画）始める。タブが裏に回っていると描画の合図が来ないので、
+    // 遅くとも 60ms で始める（来ないまま待つと、作業が始まらずグルグルも消えない）
+    let started = false;
+    const go = () => {
+      if (started) return;
+      started = true;
+      try {
+        fn();
+      } catch (e) {
+        console.error('[withBusy_] ' + e.message + ' / ' + e.stack);
+      } finally {
+        busyDepth--;
+        if (!busyDepth) box.hidden = true;
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 60);
+  }
+
   function arm(btn, warnLabel, action) {
     const original = btn.textContent;
     let ready = false, timer = 0;
@@ -3856,7 +3916,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       b.disabled = k === J;
       if (k === J) b.title = 'いまも' + SWAP_CAT_LABEL[k] + 'です';
       else if (!first) first = b;
-      b.addEventListener('click', () => swapOffer_(r, t, k));
+      b.addEventListener('click', () => withBusy_('入れ替えの案を作っています…', () => swapOffer_(r, t, k)));
       box.appendChild(b);
     });
     box.hidden = false;
@@ -5433,8 +5493,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 連続出勤の目安（rules.softCons。既定3）で組む。**上限（maxCons）は守る規則のまま、目安は「なるべく」。**
    *   1. 全員を目安までで組む。目安では出勤日数が置ききれない人だけ上限まで延ばして、最初から組み直す
    *      （途中から延ばすと、先に組んだ形が邪魔をして置ききれないことがある）
-   *   2. それで、置けない出勤・必要人数に届かない日が、目安を使わない組み方より増えるなら、
-   *      目安を超える人を後ろへ回すだけの組み方に戻す（公休ノルマと必要人数のほうを守る）
+   *   2. 目安を使わない組み方・目安を超える人を後ろへ回すだけの組み方とも比べ、置けない出勤・空欄・
+   *      配分に届かない人数・必要人数に届かない日の少ないほうを選ぶ（公休ノルマと配分のほうを守る）
    * 置き方は placeAllStaff_ が毎回やり直す（手で入れたもの以外を消してから置く）ので、何度呼んでもよい。
    * 由来: 4連勤を減らしたいという現場の要望（上限4日は実データ由来のまま。docs/REAL-SHIFT-ANALYSIS.md）。
    */
@@ -5443,7 +5503,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (soft <= 0) { placeAllStaff_(weeks, offSym, { soft: 0 }); return; }
     const keepNotes = autoNotes.slice();
     const run = opt => { autoNotes = keepNotes.slice(); return placeAllStaff_(weeks, offSym, opt); };
-    // 3通り組んで、置けない出勤 → 必要人数に届かない日 → 目安を超えた連勤 の少ない順に選ぶ
+    // 3通り組んで、置けない出勤 → 空欄 → 配分に届かない人数 → 必要人数に届かない日 → 目安を超えた連勤 の少ない順に選ぶ。
+    // 4連勤を減らすために配分（曜日・医師数の順番）を崩さない
     const tries = [];
     const tryOpt = opt => { const g = run(opt); tries.push({ opt: opt, g: g }); return g; };
     tryOpt({ soft: 0, measure: soft });                   // 目安を使わない（前と同じ組み方）
@@ -5455,7 +5516,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       g.tight.forEach(i => wide.add(i));
     }
     // 置けない出勤が同じなら、空欄（有休が要る日）にならない組み方を選ぶ
-    const score = t => [t.g.left, t.g.blank, t.g.short, t.g.over];
+    const score = t => [t.g.left, t.g.blank, t.g.allocShort, t.g.short, t.g.over];
     const better = (a, b) => { const x = score(a), y = score(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i]; return false; };
     let best = tries[0];
     tries.forEach(t => { if (better(t, best)) best = t; });
@@ -6288,17 +6349,28 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /**
+   * 上乗せの段（小さいほど先に埋める）。配分と、余った出勤を置く順で同じものを使う。
+   * 0 = 医師シフトのある月・土 / 1 = 平日（火〜金） / 2 = 日曜 / 3〜5 = 医師シフトのない日（同じ並び）
+   */
+  function allocTier_(docN, dowN) {
+    const g = dowN === 1 || dowN === 6 ? 0 : dowN === 0 ? 2 : 1;
+    return (docN > 0 ? 0 : 3) + g;
+  }
+
+  /**
    * 薬剤師の延べ出勤を日へ配る。**配列を受けて配列を返すだけ。** 画面にも表にも触らない（VBA にそのまま移せる形）。
    * 現場の指定（2026-10）の順番で配る:
    *
-   *   1. 土台 … 月〜土は医師数と同じ人数、次に日曜も医師数と同じ人数（最低 floor 人。既定2＝早番と遅番）
-   *   2. 上乗せ … **3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜** の順に1人ずつ一巡。
-   *      余ればもう一巡（+2人目）。同じ段の中では 忙しい日 → その週・その曜日にまだ足していない日 → 日付の早い日
-   *   3. それでも余れば、上乗せの順に入らない日（医師0〜2人の平日）へ。出勤日数を置ききるため
+   *   1. 土台 … 医師数と同じ人数（最低 floor 人。既定2＝早番と遅番）
+   *   2. 上乗せ … 次の段の順に1人ずつ一巡。余ればもう一巡（+2人目）
+   *        **医師シフトのある 月曜・土曜 → 平日（火〜金） → 日曜 → 医師シフトのない 月曜・土曜 → 平日 → 日曜**
+   *      医師シフトのない日（医師0人）は最後に回す。前は医師0〜2人の平日を上乗せの順に入れず、
+   *      医師シフトが空の月は余りがすべて日曜へ流れていた（日曜だけ6人など）
+   *      同じ段の中は 医師の少ない日 → 忙しい日 → その週・その曜日にまだ足していない日 → 日付の早い日
    *
    * 上限（店舗の収容上限・その日に出られる人数）は超えない。
-   * 土台だけで延べ出勤を超える月は、**日曜から**（医師の少ない日・人数の多い日・日付の遅い日から）1人ずつ戻し、
-   * それでも足りなければ医師数の少ない平日から戻す。最低 floor 人は割らない。それでも配りきれなければ1人まで戻す。
+   * 土台だけで延べ出勤を超える月は、上乗せと**逆の順**（医師シフトのある日曜 → 平日 → 月・土）で、
+   * 医師の少ない日・人数の多い日・日付の遅い日から1人ずつ戻す。最低 floor 人は割らない。それでも配りきれなければ1人まで戻す。
    *
    * need（仕事率モデルの必要人数）と quiet は配り方には使わない（過不足の行と、引数の形を保つために受ける）。
    *
@@ -6318,13 +6390,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   function allocateStaff_(total, docs, need, base, hi, busy, floor, week, quiet, dow) {
     const len = docs.length;
     const keep = Number.isFinite(floor) && floor >= 1 ? floor : 1;
-    const sun = j => (dow ? dow[j] === 0 : false);
+    const tierOf = j => allocTier_(docs[j], dow ? dow[j] : 1);
     const n = [];
     for (let j = 0; j < len; j++) n.push(Math.min(base[j], hi[j]));
     const baseSum = n.reduce((a, v) => a + v, 0);
     let left = total - baseSum;
 
-    // 土台だけで超える月。日曜から戻す（医師の少ない日 → 人数の多い日 → 日付の遅い日）。次に医師の少ない平日
+    // 土台だけで超える月。上乗せと逆の段から戻す（医師の少ない日 → 人数の多い日 → 日付の遅い日）
     for (let stage = 0; stage < 2 && left < 0; stage++) {
       const lim = stage === 0 ? keep : 1;
       while (left < 0) {
@@ -6332,7 +6404,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         for (let j = 0; j < len; j++) {
           if (n[j] <= lim) continue;
           if (pick < 0) { pick = j; continue; }
-          const d = (sun(j) ? 1 : 0) - (sun(pick) ? 1 : 0)
+          const d = tierOf(j) - tierOf(pick)
             || docs[pick] - docs[j]
             || n[j] - n[pick]
             || j - pick;
@@ -6344,8 +6416,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
     }
 
-    // 上乗せの段。0 = 3診 / 1 = 4診 / 2 = 5診 / 3 = 6診以上（日曜以外）/ 4 = 日曜。-1 は上乗せしない日
-    const tierOf = j => (sun(j) ? 4 : docs[j] >= 6 ? 3 : docs[j] >= 3 ? docs[j] - 3 : -1);
     const added = {};                                   // 週 → 足した人数
     const addedDow = {};                                // 曜日 → 足した人数
     const wk = j => (week ? week[j] : 0);
@@ -6361,7 +6431,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       let pick = -1;
       cands.forEach(j => {
         if (pick < 0) { pick = j; return; }
-        const d = (busy[j] || 0) - (busy[pick] || 0)
+        const d = docs[pick] - docs[j]
+          || (busy[j] || 0) - (busy[pick] || 0)
           || (added[wk(pick)] || 0) - (added[wk(j)] || 0)
           || (addedDow[dw(pick)] || 0) - (addedDow[dw(j)] || 0)
           || pick - j;
@@ -6371,7 +6442,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     };
     for (let round = 0; left > 0; round++) {
       let moved = false;
-      for (let t = 0; t <= 4 && left > 0; t++) {
+      for (let t = 0; t <= 5 && left > 0; t++) {
         // この巡の段。まだこの巡で足していない日（n < 土台 ＋ 巡の数 ＋ 1）だけ
         const done = new Set();
         for (;;) {
@@ -6391,7 +6462,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
       if (!moved) break;                                // どの段も上限
     }
-    // まだ余れば、上乗せの順に入らない日へ（人数の少ない日から）
+    // まだ余れば（どの段も1巡ずつでは配りきれない端数）、人数の少ない日から
     while (left > 0) {
       let pick = -1;
       for (let j = 0; j < len; j++) {
@@ -6412,7 +6483,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * いまは日の側から見る。
    *
    *   0. 配分 … 薬剤師の延べ出勤を日へ配る（allocateStaff_）。土台は医師数と同じ、
-   *             残りは 3診 → 4診 → 5診 → 6診以上 → 日曜 の順に1人ずつ
+   *             残りは 医師シフトのある 月・土 → 平日 → 日曜 → 医師シフトのない日 の順に1人ずつ
    *   1. 下限まで（薬剤師は土台、事務は営業マスタの下限）
    *   2. （1 と同じ。段の名前だけ残している）
    *   3. 配分まで
@@ -6449,7 +6520,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    *   measure: 目安を使わずに組むときに、比べるために数える目安の日数 }
    *   wide が無いとき … 全員、上限まで。目安を超える人は、その日の候補の中で後ろへ回すだけ
    *   wide があるとき … wide の人は上限まで、ほかの人は目安までしか続けて置かない
-   * @return {{left:number, blank:number, short:number, over:number, tight:Array<number>}} 置けなかった出勤日数（うち公休ノルマのある人の分）・
+   * @return {{left:number, blank:number, allocShort:number, short:number, over:number, tight:Array<number>}}
+   *   置けなかった出勤日数（うち公休ノルマのある人の分）・配分に届かない人数・
    *   必要人数に届かない日・目安を超えた連勤の回数・目安では置ききれなかった人（行の index）
    */
   function placeAllStaff_(weeks, offSym, opt) {
@@ -6501,7 +6573,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
      *   延べ出勤 ＝ 自動で置く人の今月の出勤日数 ＋ 手で置いた出勤（派遣など）
      *   土台     ＝ 医師数と同じ（最低2人。早番と遅番）
      *   必要人数 ＝ 仕事率モデル（needModel_）を四捨五入。過不足の行に出すだけで、配り方には使わない
-     *   土台を置いたあと、3診 → 4診 → 5診 → 6診以上 → 日曜 の順に1人ずつ足し、
+     *   土台を置いたあと、医師シフトのある 月・土 → 平日 → 日曜 → 医師シフトのない日 の順に1人ずつ足し、
      *   延べ出勤を配りきったら止める
      *
      * 上限は店舗の収容上限と、その日に出られる人の数。
@@ -6546,7 +6618,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     });
     const shortDays = open.filter((c, j) => alloc.n[j] < needs[j]).length;
     allocInfo = '薬剤師の延べ出勤 ' + supply + ' 人日を配りました（医師数と同じ人数に '
-      + alloc.baseSum + ' 人日、残りを 3診→4診→5診→6診→日曜 の順に1人ずつ）。'
+      + alloc.baseSum + ' 人日、残りを 医師シフトのある 月・土→平日→日曜、医師シフトのない日 の順に1人ずつ）。'
       + (shortDays ? '必要人数に届かない日 ' + shortDays + ' 日' : '全日 必要人数以上');
 
     const wantOff = (p, c) => !!(p.s.wantOffDow && p.s.wantOffDow[days[c].dow]);
@@ -6614,7 +6686,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
             // 残りの段は人手が足りている日。休みたい曜日は、ほかに置ける日がある人なら使わない
             cands = cands.filter(p => !wantOff(p, c) || !slots.get(p).pref);
             if (!cands.length) return;
-            key = [on[pool][c] - nd.alloc, -busy[c], -docCount(c), c];
+            // 配分と同じ段の順（医師シフトのある 月・土 → 平日 → 日曜 → 医師シフトのない日）。
+            // 日付の早い順だけだと、週の頭の日曜に余りが寄る
+            key = [on[pool][c] - nd.alloc, allocTier_(docCount(c), days[c].dow), -busy[c], -docCount(c), c];
           } else {
             const lack = nd[level] - on[pool][c];
             if (lack <= 0 || !cands.length) return;
@@ -6757,14 +6831,31 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     ['pharm', 'clerk'].forEach(passes);
 
     /*
-     * 置いたあとの入れ替え。**同じ週の中で、2人の出勤日を取り替えるだけ**（X: d → e、Y: e → d）。
-     * 日ごとの人数・人の週と月の出勤数・公休は変わらないので、ここで何を足しても組めなくなることはない。
-     * 手で入れた日・先に置いた日（必ず出る曜日）・出られない日・できるだけ休みたい曜日へは動かさない。
-     * 連勤の上限（目安で組んだ人は目安）を守り、目安を超える連勤を増やさず、締め作業の人を残す。
-     * 現場の指定（2026-10）で、次の順に整える。前の段で整えたものは、あとの段で崩さない。
-     *   1. 「◯診出勤」（医師が busyDocN_() 人以上の日の出勤）を、出勤日数に比例した数に近づける
-     *   2. 個人の要望 … 土日どちらか休み（月◯回。weekendOffN）・できるだけ休みたい曜日（wantOffDow）
-     *   3. 曜日の偏り … 曜日ごとの出勤を、その曜日の営業日数に比例した数に近づける（生活リズム）
+     * 置いたあとの自動調節。**破綻の点数が良くならなくなるまで、出勤日を動かす。**
+     *
+     * 破綻の点数は、次の順に比べる（前のほうが大事。前が良くなるなら、後ろは悪くなってもよい）。
+     *   0. 置けない出勤 … 公休ノルマどおりに置けなかった出勤日数（空欄になり、有休が要る）
+     *   1. 土台割れ … 医師数（最低2人）に届かない人数
+     *   2. 段の順の逆転 … 先に埋める段（allocTier_）の日が、あとの段の日より少ない（土曜4人・日曜6人）。
+     *      同じ段どうしは2人以上の差。土台を超えた人数で比べ、上限に届いている日は比べない。差の2乗の合計
+     *   3. 配分に届かない人数
+     *   4. 目安を超える連勤の回数
+     *   5. 「◯診出勤」の偏り … 医師が busyDocN_() 人以上の日の出勤を、出勤日数に比例した数からのずれ（2乗の合計）
+     *   6. 叶わない要望 … 土日どちらか休み（月◯回。weekendOffN）の不足と、できるだけ休みたい曜日（wantOffDow）の出勤
+     *   7. 曜日の偏り … 曜日ごとの出勤を、出られる曜日の営業日数に比例した数からのずれ（生活リズム）
+     *
+     * 動かし方（現場の指定 2026-10。週をまたいでよい）
+     *   置く … 置ききれなかった人の出勤を置く。自分の出勤を1日動かして、連勤・週の上限の空きを作ってから置いてもよい
+     *   単一入れ替え … 1人の出勤日を別の日へ動かす
+     *   相互入れ替え … 2人の出勤日を取り替える（X: d → e、Y: e → d）。日ごとの人数は変わらない
+     *   連鎖 … X が v → u、Y（X 本人でもよい）が u の週の b → v の週の a。週ごとの日数を保ったまま、
+     *          週をまたいで人数を動かす（u の週が詰まっていて、単一入れ替えでは届かないとき）
+     * 置く以外は、人の月の出勤日数を変えない。
+     * 安いほうから試し、良くなる動かし方が見つかったら最初からやり直す。乱数は使わないので、同じ入力なら同じ結果。
+     *
+     * 守るもの（破るなら動かさない）: 週の上限・連勤の上限（目安で組んだ人は目安）・出られない日・
+     * できるだけ休みたい曜日へは動かさない・手で入れた日・先に置いた日（必ず出る曜日・固定曜日）・
+     * 減る日の土台と締め作業の人・増える日の店の上限。
      */
     const busyN = busyDocN_();
     const isBusy = c => docCount(c) >= busyN;
@@ -6778,7 +6869,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       }
       return true;
     };
-    // 連続出勤の目安を超える連勤の回数（入れ替えで増やさない）
+    // 連続出勤の目安を超える連勤の回数
     const meas = soft || Number(o.measure) || 0;
     const overOf = p => {
       if (!meas) return 0;
@@ -6790,29 +6881,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       return k + (n > meas ? 1 : 0);
     };
     const closerOk = (pool, c) => !(pool === 'pharm' && DB.rules.needCloser) || closer[c] >= 1;
-    const swapRaw = (x, d, y, e) => {
-      const symX = get(x.row, d), symY = get(y.row, e);
-      unplace(x, d); unplace(y, e);
-      place(x, e); place(y, d);
-      setV(x.row, e, symX); setV(y.row, d, symY);
-    };
-    /**
-     * 取り替えてみて、守るものを守れて better() が真なら残す。残したら true
-     * keepFn … 前の段で整えたものを崩していないか（取り替えたあとに見る）
-     */
-    const trySwap = (x, d, y, e, better) => {
-      if (x === y || d === e || weekOf[d] !== weekOf[e]) return false;
-      if (!movable(x, d) || !freeFor(y, d) || !movable(y, e) || !freeFor(x, e)) return false;
-      const pool = x.pool;
-      const cD = closerOk(pool, d), cE = closerOk(pool, e);
-      const over0 = overOf(x) + overOf(y);
-      swapRaw(x, d, y, e);
-      if (runsOk(x) && runsOk(y) && overOf(x) + overOf(y) <= over0
-        && (!cD || closerOk(pool, d)) && (!cE || closerOk(pool, e)) && better()) return true;
-      swapRaw(x, e, y, d);                                // 戻す
-      return false;
-    };
     const worksOf = p => open.filter(c => isWork(get(p.row, c))).length;
+    const busyOf = p => open.filter(c => isBusy(c) && isWork(get(p.row, c))).length;
 
     // 土日どちらか休み。月の中の「土曜と翌日の日曜」の組を数える（日曜が休業なら、その組は休みとして数える）
     const weekends = open.filter(c => days[c].dow === 6 && c + 1 < DAY_COLS && days[c + 1].inMonth)
@@ -6821,132 +6891,245 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const wkGot = p => weekends.filter(([sa, su]) => !isWork(get(p.row, sa)) || !isWork(get(p.row, su))).length;
     // できるだけ休みたい曜日に出ている日数
     const wantOffHits = p => open.filter(c => wantOff(p, c) && isWork(get(p.row, c))).length;
-    // 要望が崩れていない（叶った数が、希望の数か、前の数のどちらか小さいほうを割らない）
-    const wishKeep = (p, wk0, hit0) => wkGot(p) >= Math.min(wkWant(p), wk0) && wantOffHits(p) <= hit0;
 
-    const balancePool = pool => {
+    // 曜日の偏り。出られる曜日（休みたい曜日を除く）の営業日数に比例した数からのずれ
+    const openByDow = [0, 0, 0, 0, 0, 0, 0];
+    open.forEach(c => { openByDow[days[c].dow]++; });
+    const devOf = p => {
+      const got = [0, 0, 0, 0, 0, 0, 0];
+      open.forEach(c => { if (isWork(get(p.row, c))) got[days[c].dow]++; });
+      const wt = openByDow.map((n, dw) => (p.s.availDow && !p.s.availDow[dw]) || (p.s.wantOffDow && p.s.wantOffDow[dw]) ? 0 : n);
+      const sum = wt.reduce((acc, v) => acc + v, 0);
+      const w = worksOf(p);
+      return got.reduce((acc, g, dw) => acc + Math.pow(g - (sum ? w * wt[dw] / sum : 0), 2), 0);
+    };
+
+    const tierAt = c => allocTier_(docCount(c), days[c].dow);
+    const capAt = (pool, c) => Math.min(needAt[pool][c].max, pool === 'pharm' ? avail[c] : Infinity);
+    // 段の順の逆転。[先に埋める日 u, 多い日 v, 差]。土台を割っている日は、どの段よりも先
+    const inversions = pool => {
+      const out = [];
+      if (pool !== 'pharm') return out;
+      const ex = [], ti = [];
+      open.forEach(c => {
+        ex[c] = on.pharm[c] - needAt.pharm[c].min;
+        ti[c] = ex[c] < 0 ? -1 : tierAt(c);
+      });
+      open.forEach(u => {
+        if (on.pharm[u] >= capAt(pool, u)) return;
+        open.forEach(v => {
+          if (u === v) return;
+          const g = ti[u] < ti[v] ? ex[v] - ex[u] : ti[u] === ti[v] ? ex[v] - ex[u] - 1 : 0;
+          if (g > 0) out.push([u, v, g]);
+        });
+      });
+      return out;
+    };
+
+    // 人ごとの点数（動いた人だけ数え直す）
+    const personCache = new Map();
+    const personOf = p => {
+      let t = personCache.get(p);
+      if (!t) {
+        t = { over: overOf(p), works: worksOf(p), busy: busyOf(p),
+          wish: Math.max(0, wkWant(p) - wkGot(p)) + wantOffHits(p), dow: devOf(p) };
+        personCache.set(p, t);
+      }
+      return t;
+    };
+    const scoreOf = (pool, mine) => {
+      let base = 0, alloc = 0;
+      open.forEach(c => {
+        const nd = needAt[pool][c];
+        base += Math.max(0, nd.min - on[pool][c]);
+        alloc += Math.max(0, (nd.alloc || 0) - on[pool][c]);
+      });
+      const left = mine.reduce((acc, p) => acc + Math.max(0, p.left), 0);
+      const inv = inversions(pool).reduce((acc, x) => acc + x[2] * x[2], 0);
+      let over = 0, wish = 0, dow = 0, totalW = 0, totalB = 0;
+      mine.forEach(p => {
+        const t = personOf(p);
+        over += t.over; wish += t.wish; dow += t.dow; totalW += t.works; totalB += t.busy;
+      });
+      let busyDev = 0;
+      if (totalW) mine.forEach(p => { const t = personOf(p); busyDev += Math.pow(t.busy - t.works * totalB / totalW, 2); });
+      return [left, base, inv, alloc, over, busyDev, wish, dow];
+    };
+    // 辞書順に比べる（小数の誤差は同じとみなす）
+    const cmpScore = (a, b) => {
+      for (let k = 0; k < a.length; k++) if (Math.abs(a[k] - b[k]) > 1e-6) return a[k] - b[k];
+      return 0;
+    };
+    // 出勤日を動かす（記号はそのまま持っていく）
+    const mv = (p, from, to) => {
+      const sym = get(p.row, from);
+      unplace(p, from);
+      place(p, to);
+      setV(p.row, to, sym);
+      personCache.delete(p);
+    };
+
+    const improve = pool => {
       const mine = plans.filter(p => p.pool === pool);
-      if (mine.length < 2) return;
+      if (!mine.length) return;
+      let cur = scoreOf(pool, mine);
       const weekCols = wi => weeks[wi].cols.filter(c => days[c].inMonth && days[c].open);
 
-      // 1. ◯診出勤
-      if (open.some(isBusy)) {
-        const busyOf = p => open.filter(c => isBusy(c) && isWork(get(p.row, c))).length;
-        for (let guard = 0; guard < 400; guard++) {
-          const totalW = mine.reduce((acc, p) => acc + worksOf(p), 0);
-          const totalB = mine.reduce((acc, p) => acc + busyOf(p), 0);
-          if (!totalW) break;
-          const excess = p => busyOf(p) - worksOf(p) * totalB / totalW;
-          const order = mine.slice().sort((p, q) => excess(q) - excess(p));
-          let done = false;
-          for (let i = 0; i < order.length && !done; i++) {
-            for (let k = order.length - 1; k > i && !done; k--) {
-              const x = order[i], y = order[k];
-              if (excess(x) - excess(y) < 1.5) continue;   // 1回動かして縮む差だけ動かす
-              for (let wi = 0; wi < weeks.length && !done; wi++) {
-                const cols = weekCols(wi);
-                for (const d of cols) {
-                  if (done) break;
-                  if (!isBusy(d)) continue;
-                  for (const e of cols) {
-                    if (isBusy(e)) continue;
-                    if (trySwap(x, d, y, e, () => true)) { done = true; break; }
-                  }
-                }
-              }
-            }
+      /**
+       * steps（[人, 元の日, 先の日] の並び）を順に動かしてみて、守るものを守れて点数が良くなれば残す。
+       * 元の日が null の手は、置ききれなかった出勤を先の日に置く
+       */
+      const attempt = steps => {
+        const cl = [];
+        open.forEach(c => { cl[c] = closerOk(pool, c); });
+        const done = [];
+        const undo = () => {
+          for (let k = done.length - 1; k >= 0; k--) {
+            const st = done[k];
+            if (st[1] === null) { unplace(st[0], st[2]); personCache.delete(st[0]); } else mv(st[0], st[2], st[1]);
           }
-          if (!done) break;
+        };
+        for (const st of steps) {
+          const p = st[0];
+          if (st[1] === null) {
+            if (p.left <= 0 || !freeFor(p, st[2])) { undo(); return false; }
+            place(p, st[2]);
+            personCache.delete(p);
+          } else {
+            if (!movable(p, st[1]) || !freeFor(p, st[2])) { undo(); return false; }
+            mv(p, st[1], st[2]);
+          }
+          done.push(st);
         }
-      }
-
-      // 2. 個人の要望。◯診出勤を崩さないよう、忙しさの同じ日どうしでだけ取り替える
-      const sameBusy = (d, e) => isBusy(d) === isBusy(e);
-      for (let guard = 0; guard < 300; guard++) {
-        let done = false;
-        // 2-1. 土日どちらか休み（希望の数に届いていない人から）
-        mine.filter(x => wkGot(x) < wkWant(x)).forEach(x => {
-          if (done) return;
-          weekends.forEach(([sa, su]) => {
-            if (done || !isWork(get(x.row, sa)) || !isWork(get(x.row, su))) return;
-            [su, sa].forEach(t => {                        // 日曜を先に空ける（土曜のほうが人が要る）
-              if (done) return;
-              weekCols(weekOf[t]).forEach(e => {
-                if (done || e === sa || e === su || !sameBusy(t, e)) return;
-                mine.forEach(y => {
-                  if (done || y === x) return;
-                  const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
-                  done = trySwap(x, t, y, e, () => wkGot(x) > wkX && wishKeep(y, wkY, hitY) && wantOffHits(x) <= hitX);
-                });
-              });
-            });
-          });
+        const ok = steps.every(st => {
+          const p = st[0], from = st[1], to = st[2];
+          return runsOk(p) && p.wk[weekOf[to]].n <= p.wk[weekOf[to]].cap
+            && on[pool][to] <= needAt[pool][to].max
+            && (from === null || (p.wk[weekOf[from]].n <= p.wk[weekOf[from]].cap
+              && on[pool][from] >= needAt[pool][from].min && (!cl[from] || closerOk(pool, from))));
         });
-        // 2-2. できるだけ休みたい曜日に出ている日を、ほかの人と取り替える
-        mine.filter(x => wantOffHits(x) > 0).forEach(x => {
-          if (done) return;
-          open.forEach(d => {
-            if (done || !wantOff(x, d) || !isWork(get(x.row, d))) return;
-            weekCols(weekOf[d]).forEach(e => {
-              if (done || !sameBusy(d, e)) return;
-              mine.forEach(y => {
-                if (done || y === x) return;
-                const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
-                done = trySwap(x, d, y, e, () => wantOffHits(x) < hitX && wishKeep(x, wkX, hitX) && wishKeep(y, wkY, hitY));
-              });
-            });
-          });
-        });
-        if (!done) break;
-      }
-
-      // 3. 曜日の偏り。曜日ごとの出勤を、出られる曜日（休みたい曜日を除く）の営業日数に比例した数に近づける
-      const openByDow = [0, 0, 0, 0, 0, 0, 0];
-      open.forEach(c => { openByDow[days[c].dow]++; });
-      const devOf = p => {
-        const got = [0, 0, 0, 0, 0, 0, 0];
-        open.forEach(c => { if (isWork(get(p.row, c))) got[days[c].dow]++; });
-        const wt = openByDow.map((n, dw) => (p.s.availDow && !p.s.availDow[dw]) || (p.s.wantOffDow && p.s.wantOffDow[dw]) ? 0 : n);
-        const sum = wt.reduce((acc, v) => acc + v, 0);
-        const w = worksOf(p);
-        return got.reduce((acc, g, dw) => acc + Math.pow(g - (sum ? w * wt[dw] / sum : 0), 2), 0);
+        if (ok) {
+          const sc = scoreOf(pool, mine);
+          if (cmpScore(sc, cur) < 0) { cur = sc; return true; }
+        }
+        undo();
+        return false;
       };
-      for (let guard = 0; guard < 400; guard++) {
-        let done = false;
-        const order = mine.slice().sort((p, q) => devOf(q) - devOf(p));
-        for (let i = 0; i < order.length && !done; i++) {
-          const x = order[i];
-          for (let wi = 0; wi < weeks.length && !done; wi++) {
-            const cols = weekCols(wi);
-            for (const d of cols) {
-              if (done) break;
-              for (const e of cols) {
-                if (done) break;
-                if (days[d].dow === days[e].dow || !sameBusy(d, e)) continue;
-                for (const y of mine) {
-                  if (y === x) continue;
-                  const dev0 = devOf(x) + devOf(y);
-                  const wkX = wkGot(x), wkY = wkGot(y), hitX = wantOffHits(x), hitY = wantOffHits(y);
-                  if (trySwap(x, d, y, e, () => devOf(x) + devOf(y) < dev0 - 0.5
-                    && wishKeep(x, wkX, hitX) && wishKeep(y, wkY, hitY))) { done = true; break; }
+      // 日の人数だけを見た点数（土台割れ・逆転・配分）。v から u へ1人動かすと良くなるか
+      const headOf = () => {
+        let base = 0, alloc = 0;
+        open.forEach(c => {
+          const nd = needAt[pool][c];
+          base += Math.max(0, nd.min - on[pool][c]);
+          alloc += Math.max(0, (nd.alloc || 0) - on[pool][c]);
+        });
+        return [base, inversions(pool).reduce((acc, x) => acc + x[2] * x[2], 0), alloc];
+      };
+      const headGain = (v, u) => {
+        const h0 = headOf();
+        on[pool][v]--; on[pool][u]++;
+        const h1 = headOf();
+        on[pool][v]++; on[pool][u]--;
+        return cmpScore(h1, h0) < 0;
+      };
+
+      // 置く。そのまま置けないなら、自分の出勤を1日動かして空きを作ってから置く
+      const tryAdd = () => {
+        for (const p of mine) {
+          if (p.left <= 0) continue;
+          for (const u of open) {
+            if (!freeFor(p, u) || on[pool][u] >= needAt[pool][u].max) continue;
+            if (attempt([[p, null, u]])) return true;
+          }
+          for (const b of open) {
+            if (!movable(p, b)) continue;
+            for (const a of open) {
+              if (a === b || !freeFor(p, a)) continue;
+              for (const u of open) {
+                if (u === a || !freeFor(p, u) || on[pool][u] >= needAt[pool][u].max) continue;
+                if (attempt([[p, b, a], [p, null, u]])) return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+      // 単一入れ替え
+      const trySingle = () => {
+        for (const p of mine) {
+          for (const v of open) {
+            if (!movable(p, v)) continue;
+            for (const u of open) {
+              if (u === v || !freeFor(p, u) || on[pool][u] >= needAt[pool][u].max) continue;
+              if (weekOf[u] !== weekOf[v] && p.wk[weekOf[u]].n >= p.wk[weekOf[u]].cap) continue;
+              if (attempt([[p, v, u]])) return true;
+            }
+          }
+        }
+        return false;
+      };
+      // 相互入れ替え
+      const tryMutual = () => {
+        for (let a = 0; a < mine.length; a++) {
+          const x = mine[a];
+          for (let b = a + 1; b < mine.length; b++) {
+            const y = mine[b];
+            for (const d of open) {
+              if (!movable(x, d) || !freeFor(y, d)) continue;
+              for (const e of open) {
+                if (e === d || !movable(y, e) || !freeFor(x, e)) continue;
+                if (attempt([[x, d, e], [y, e, d]])) return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+      // 連鎖。日の人数が良くなる組（v → u）だけ試す
+      const tryChain = () => {
+        const pairs = [];
+        open.forEach(v => open.forEach(u => {
+          if (u !== v && weekOf[u] !== weekOf[v] && headGain(v, u)) pairs.push([v, u]);
+        }));
+        for (const [v, u] of pairs) {
+          for (const x of mine) {
+            if (!movable(x, v) || !freeFor(x, u)) continue;
+            for (const y of mine) {
+              for (const bb of weekCols(weekOf[u])) {
+                if (bb === u || !movable(y, bb)) continue;
+                for (const aa of weekCols(weekOf[v])) {
+                  if (aa === v && y === x) continue;
+                  if (attempt([[x, v, u], [y, bb, aa]])) return true;
                 }
               }
             }
           }
         }
-        if (!done) break;
-      }
+        return false;
+      };
 
-      // 叶わなかった要望を申し送る
-      mine.forEach(p => {
-        const want = wkWant(p);
-        if (want && wkGot(p) < want) {
-          note_(p.s.name + '：土日どちらか休みは 月' + want + '回の希望に対し ' + wkGot(p) + ' 回です'
-            + '（土日に要る人数・週の出勤日数のため）');
-        }
-      });
+      for (let guard = 0; guard < 600; guard++) {
+        if (!(tryAdd() || trySingle() || tryMutual() || tryChain())) break;
+      }
     };
-    ['pharm', 'clerk'].forEach(balancePool);
+    ['pharm', 'clerk'].forEach(improve);
+
+    // 直せなかったものを申し送る
+    const leftInv = inversions('pharm').filter(x => tierAt(x[0]) < tierAt(x[1]) || on.pharm[x[0]] < needAt.pharm[x[0]].min)
+      .sort((a, b) => b[2] - a[2] || a[0] - b[0]);
+    if (leftInv.length) {
+      const say = c => days[c].day + '日 ' + on.pharm[c] + '人（土台' + needAt.pharm[c].min + '人）';
+      note_('薬剤師の人数が曜日の順番と逆の日が残っています（'
+        + leftInv.slice(0, 3).map(x => say(x[0]) + ' < ' + say(x[1])).join('、')
+        + '）。週の上限・連勤の上限・出られない日のため、出勤日を動かしても直せませんでした');
+    }
+    plans.forEach(p => {
+      const want = wkWant(p);
+      if (want && wkGot(p) < want) {
+        note_(p.s.name + '：土日どちらか休みは 月' + want + '回の希望に対し ' + wkGot(p) + ' 回です'
+          + '（土日に要る人数・週の出勤日数のため）');
+      }
+    });
 
     // 残りを公休にする。通常はノルマちょうどまで、それ以外は全部。
     // 休業日から先に埋める（店が閉まっている日は必ず公休）。
@@ -6992,6 +7175,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       // そのうち公休ノルマのある人の分（記号未定の空欄になり、有休を当てる必要が出る）
       blank: plans.reduce((a, p) => a + (usesQuota(p.s) ? Math.max(0, p.left) : 0), 0),
       short: open.filter(c => on.pharm[c] < Math.round(needAt.pharm[c].need || 0)).length,
+      // 配分（その日の目標人数）に届かない人数の合計。配分は曜日・医師数の順番どおりに決めてあるので、
+      // ここが崩れると「金曜4人なのに日曜6人」のような、順番と逆の表になる
+      allocShort: open.reduce((a, c) => a + Math.max(0, (needAt.pharm[c].alloc || 0) - on.pharm[c]), 0),
       over: over,
       tight: plans.filter(p => p.left > 0 && p.capNow < p.cap).map(p => p.idx)
     };
@@ -8161,8 +8347,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { key: 'needPharmB', label: '薬剤師', type: 'num', unit: '人（これより医師が多い日は同じ比）', min: 1, max: 15 },
       { key: 'baseMinPharm', label: '土台（医師数と同じ）の最低', type: 'num', unit: '人', min: 1, max: 6 },
       { note: '**配り方:** まず全日に医師数と同じ人数（最低は上の人数）を置きます（月〜土 → 日曜）。'
-             + '残りの出勤は 3診の日 → 4診の日 → 5診の日 → 6診以上の日 → 日曜 の順に1人ずつ足し、余ればもう一巡して、'
-             + '配りきったら止めます。出勤が足りない月は日曜から減らします。'
+             + '残りの出勤は 医師シフトのある 月曜・土曜 → 平日 → 日曜 → 医師シフトのない日 の順に1人ずつ足し、'
+             + '余ればもう一巡して、配りきったら止めます。出勤が足りない月は逆の順（医師シフトのある日曜から）に減らします。'
              + '記号は 1人目が早番、2・3人目が遅番、4人目から 遅半 → 遅半 → 遅番 → 早番 → 遅番 … の順です。' },
       { note: '薬剤師の記号は人数で決まるので、早番・遅半・遅番の人数の設定はありません。'
              + '下は事務員だけに効きます。' },
@@ -8636,13 +8822,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     ev.preventDefault();
   });
 
-  arm($('autoRun'), 'もう一度押すと生成', () => {
+  arm($('autoRun'), 'もう一度押すと生成', () => withBusy_('自動生成しています…', () => {
     snapshot_('自動生成の直前');
     markEdited_();
     autoGenerate();
     renderHistory();
     undoStat_('自動生成の直前を控えました。「戻す」で元に戻せます');
-  });
+  }));
 
   // 控えを取るのも戻すのも、失うものが無いので一度押しでよい。
   // 戻す前にいまの状態を控えるので、押しすぎても失われない
@@ -9185,7 +9371,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   });
   renderRestoreBtn_();
 
-  $('dataApply').addEventListener('click', () => {
+  $('dataApply').addEventListener('click', () => withBusy_('データを取り込んでいます…', applyDataBox_));
+  /** 「データ書き出し」タブに貼った JSON を当てる */
+  function applyDataBox_() {
     let parsed;
     try { parsed = JSON.parse($('dataBox').value); }
     catch (e) { dataStat('JSON として読めません: ' + e.message); return; }
@@ -9269,7 +9457,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     } else {
       dataStat('取り込みました（' + present.join(' / ') + '）。');
     }
-  });
+  }
 
   arm($('dataReset'), 'もう一度押すと初期化', () => {
     takeBackup_('初期化の直前');
@@ -10522,7 +10710,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 既にある表は触らない。作り直しても、前に配ったものが残る。
    */
   function exportSheet() {
-    if (!onServer()) { exportXlsx_(); return; }   // 単体で開いているとき。見本の様式の .xlsx
+    if (!onServer()) { withBusy_('Excel に書き出しています…', exportXlsx_); return; }   // 単体で開いているとき。見本の様式の .xlsx
     let model;
     try {
       model = sheetModel_();
@@ -11715,7 +11903,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   ['docAskY', 'docAskM'].forEach(id => $(id).addEventListener('input', askPreview_));
   $('docAskBlock').addEventListener('change', askPreview_);
-  $('docAskGo').addEventListener('click', runIntake_);
+  $('docAskGo').addEventListener('click', () => withBusy_('医師シフトを読み込んでいます…', runIntake_));
   $('docAskNo').addEventListener('click', () => {
     pendingBook = null;
     closeAsk_();
@@ -11725,7 +11913,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   $('docAsk').addEventListener('close', () => { pendingBook = null; });
   // 年月を打ってそのまま Enter で進めるように
   ['docAskY', 'docAskM'].forEach(id => $(id).addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); runIntake_(); }
+    if (ev.key === 'Enter') { ev.preventDefault(); withBusy_('医師シフトを読み込んでいます…', runIntake_); }
   }));
 
   $('docInFile').addEventListener('change', ev => {
