@@ -440,6 +440,12 @@ td.cell.swapgive-yellow { box-shadow: inset 0 0 0 3px var(--warn); }
 td.cell.swapgive-red    { box-shadow: inset 0 0 0 3px var(--danger); }
 td.cell.swapgive-none   { box-shadow: inset 0 0 0 2px var(--rule); opacity: .55; }
 td.cell.swapgive.swapsel { box-shadow: inset 0 0 0 3px var(--accent); }
+/* 差し出す日の、交換相手のセル。いちばん良い案の色 */
+td.cell.swapmate { cursor: pointer; }
+td.cell.swapmate-green  { box-shadow: inset 0 0 0 3px var(--swap-green); }
+td.cell.swapmate-yellow { box-shadow: inset 0 0 0 3px var(--warn); }
+td.cell.swapmate-red    { box-shadow: inset 0 0 0 3px var(--danger); }
+td.cell.swapmate.swapsel { box-shadow: inset 0 0 0 3px var(--accent); }
 td.cell.swapchg { position: relative; outline: 2px dashed var(--ink-soft); outline-offset: -3px; }
 td.cell.swapchg-green  { background: var(--swap-green-bg) !important; }
 td.cell.swapchg-yellow { background: var(--warn-bg) !important; }
@@ -456,7 +462,9 @@ td.cell.swapped { position: relative; }
 td.cell.swapped::before {
   content: '⇄'; position: absolute; right: 1px; top: 0; font-size: 8px; color: var(--accent); line-height: 1;
 }
-.swapstat { font-weight: 700; color: var(--ink); }
+.swapstat { font-weight: 700; color: var(--ink); flex: 1 1 260px; min-width: 200px; }
+.toolbar button { white-space: nowrap; }
+.toolbar .group:has(#swapStat) { flex-wrap: wrap; flex: 1 1 auto; }
 .swappanel {
   position: fixed; right: 16px; bottom: 16px; z-index: 50; width: min(440px, calc(100vw - 32px));
   max-height: 45vh; overflow: auto; background: var(--surface); color: var(--ink);
@@ -464,6 +472,30 @@ td.cell.swapped::before {
   box-shadow: 0 6px 24px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 6px;
 }
 .swappanel[hidden] { display: none; }
+/* 対象日の右隣に出す「何にするか」。押す場所を選んだセルの近くに置く */
+.swapwant {
+  position: fixed; z-index: 51; display: flex; flex-direction: column; gap: 4px; padding: 6px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2); font-size: 12px;
+}
+.swapwant[hidden] { display: none; }
+.swapwant .swaphead { font-weight: 700; font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+.swapwant button { white-space: nowrap; text-align: left; }
+.swapmatebox { max-width: min(380px, calc(100vw - 16px)); max-height: 60vh; overflow: auto; }
+.swapmatebox button.swapplan {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; white-space: normal;
+  border-left: 5px solid var(--rule); padding: 5px 8px;
+}
+.swapmatebox button.swapplan-green  { border-left-color: var(--swap-green); }
+.swapmatebox button.swapplan-yellow { border-left-color: var(--warn); }
+.swapmatebox button.swapplan-red    { border-left-color: var(--danger); }
+.swapmatebox .swaplv { font-size: 11px; font-weight: 700; }
+.swapmatebox .swapplan-green .swaplv  { color: var(--swap-green); }
+.swapmatebox .swapplan-yellow .swaplv { color: var(--warn); }
+.swapmatebox .swapplan-red .swaplv    { color: var(--danger); }
+.swapmatebox .swaptxt { font-size: 12px; }
+.swapmatebox .swapwhy { font-size: 11px; color: var(--ink-soft); }
+@media print { .swapwant { display: none !important; } }
 .swappanel.swappanel-left { right: auto; left: 16px; }
 .swappanel .swaphead { font-weight: 700; font-size: 13px; }
 .swappanel .swapnote { font-size: 11px; color: var(--ink-faint); }
@@ -1166,6 +1198,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <span class="note" id="undoStat"></span>
       <span class="note swapstat" id="swapStat" role="status" aria-live="polite"></span>
       <div class="swappanel" id="swapPanel" hidden></div>
+      <div class="swapwant" id="swapWant" role="group" aria-label="この日を何にするか" hidden></div>
+      <div class="swapwant swapmatebox" id="swapMate" role="group" aria-label="この人との入れ替え案" hidden></div>
     </div>
     <div class="group">
       <span class="lbl">出力</span>
@@ -1610,7 +1644,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.20.0';
+  const APP_VERSION = '1.21.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
@@ -3528,6 +3562,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   const SWAP_MAX_PEOPLE = 3;            // 連鎖は X を含めて3人まで
   const SWAP_PLANS_PER_DAY = 12;        // 差し出す日ごとに出す案の数
   const SWAP_CAT_LABEL = { O: '休み', E: '早番', L: '遅番系' };
+  /** 対象日を何にするかのボタン。遅番系は ●遅半 と ▲遅番 をまとめた区分 */
+  const SWAP_WANT_LABEL = { O: '公休にする', E: '早番にする', L: '遅番／遅半にする' };
   const swapKey = (row, c) =>
     'swap:' + row.key + '|' + curYm + '|' + (days[c] ? days[c].day : c + 1);
   const isSwapped = (row, c) => values.get(swapKey(row, c)) === '1';
@@ -3702,6 +3738,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   const dayLabel_ = c => (days[c] ? days[c].day + '日' : '');
   const symLabel_ = v => (v ? '「' + v + '」' : '「空欄」');
   const SWAP_CLS = ['swapsel', 'swapgive', 'swapgive-green', 'swapgive-yellow', 'swapgive-red',
+    'swapmate', 'swapmate-green', 'swapmate-yellow', 'swapmate-red',
     'swapgive-none', 'swapchg', 'swapchg-green', 'swapchg-yellow', 'swapchg-red'];
   function swapClearPaint_(onlyPreview) {
     const cls = onlyPreview ? ['swapchg', 'swapchg-green', 'swapchg-yellow', 'swapchg-red'] : SWAP_CLS;
@@ -3722,6 +3759,14 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         if (!e) return;
         e.classList.add('swapgive', 'swapgive-' + (plans.length ? plans[0].level : 'none'));
         if (swapMode.stage === 'plan' && c === swapMode.d) e.classList.add('swapsel');
+      });
+    }
+    if (swapMode.stage === 'plan' && swapMode.mates) {
+      swapMode.mates.forEach((plans, r) => {
+        const e = cellAt(r, swapMode.d);
+        if (!e) return;
+        e.classList.add('swapmate', 'swapmate-' + plans[0].level);
+        if (r === swapMode.mate) e.classList.add('swapsel');
       });
     }
   }
@@ -3765,6 +3810,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   };
   const SWAP_LEVEL_TEXT = { green: '◎ 連勤も目安以内', yellow: '○ ルールは守る', red: '× ルール違反' };
   function swapPanel_(build) {
+    const want = $('swapWant');
+    if (want && !(swapMode && swapMode.stage === 'want')) want.hidden = true;   // 何にするかを聞く段だけ出す
+    const mate = $('swapMate');
+    if (mate && !(swapMode && swapMode.stage === 'plan' && swapMode.mate !== undefined)) mate.hidden = true;
     const box = $('swapPanel');
     if (!box) return;
     box.textContent = '';
@@ -3776,7 +3825,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     swapMode = { stage: 'pick' };
     $('swapBtn').classList.add('on');
     $('swapBtn').setAttribute('aria-pressed', 'true');
-    swapStat_('入れ替え: 休みか早番にしたい日（その人の行の日）を押してください（Esc でやめる）');
+    swapStat_('入れ替え: 公休・早番・遅番にしたい日（その人の行の日）を押してください（Esc でやめる）');
     swapPanel_(null);
     swapPaint_();
   }
@@ -3794,17 +3843,65 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const J = swapCatOf_(get(row, t));
     swapMode = { stage: 'want', r: r, t: t };
     swapPaint_();
-    swapStat_('入れ替え: ' + row.label + ' の ' + dayLabel_(t) + symLabel_(get(row, t)) + ' を何にしますか');
-    swapPanel_(box => {
-      box.appendChild(el('div', 'swaphead', row.label + ' の ' + dayLabel_(t) + '（いま ' + SWAP_CAT_LABEL[J] + '）を'));
-      ['O', 'E'].forEach(k => {
-        const b = el('button', '', SWAP_CAT_LABEL[k] + 'にする');
-        b.disabled = k === J;
-        if (k === J) b.title = 'いまも' + SWAP_CAT_LABEL[k] + 'です';
-        b.addEventListener('click', () => swapOffer_(r, t, k));
-        box.appendChild(b);
-      });
+    swapStat_('入れ替え: ' + row.label + ' の ' + dayLabel_(t) + symLabel_(get(row, t)) + ' を何にしますか（Esc でやめる）');
+    swapPanel_(null);
+    const box = $('swapWant');
+    if (!box) return;
+    box.textContent = '';
+    box.appendChild(el('div', 'swaphead', dayLabel_(t) + '（いま ' + SWAP_CAT_LABEL[J] + '）を'));
+    let first = null;
+    ['O', 'E', 'L'].forEach(k => {
+      const b = el('button', '', SWAP_WANT_LABEL[k]);
+      b.type = 'button';
+      b.disabled = k === J;
+      if (k === J) b.title = 'いまも' + SWAP_CAT_LABEL[k] + 'です';
+      else if (!first) first = b;
+      b.addEventListener('click', () => swapOffer_(r, t, k));
+      box.appendChild(b);
     });
+    box.hidden = false;
+    swapPlaceWant_();
+    if (first) first.focus({ preventScroll: true });
+  }
+  /**
+   * 枠を、セルの右隣に置く。右がはみ出すなら左隣、下がはみ出すなら上へずらす。
+   * セルが表の段の外に出ていたら隠す（表をスクロールしたら付いていく）
+   */
+  function swapPlaceBox_(box, cell, avoid) {
+    if (!box) return;
+    if (!cell) { box.hidden = true; return; }
+    const r = cell.getBoundingClientRect();
+    const part = cell.closest('.gpart');
+    const pr = part ? part.getBoundingClientRect() : r;
+    const visible = r.right > pr.left && r.left < pr.right && r.bottom > pr.top && r.top < pr.bottom;
+    box.hidden = !visible;
+    if (!visible) return;
+    const w = box.offsetWidth, h = box.offsetHeight, gap = 4, vw = window.innerWidth, vh = window.innerHeight;
+    let top = r.top;
+    if (top + h > vh - 4) top = Math.max(4, vh - 4 - h);
+    // 横の置き場所の候補。セルの右隣 → 左隣 → 色の付いたマスの右端の外 → 左端の外
+    const marks = avoid ? Array.from(document.querySelectorAll(avoid)).map(e => e.getBoundingClientRect()) : [];
+    const xs = [r.right + gap, r.left - gap - w];
+    if (marks.length) {
+      xs.push(Math.max.apply(null, marks.map(m => m.right)) + gap);
+      xs.push(Math.min.apply(null, marks.map(m => m.left)) - gap - w);
+    }
+    const fits = x => x >= 4 && x + w <= vw - 4;
+    const covers = x => marks.filter(m => m.right > x && m.left < x + w && m.bottom > top && m.top < top + h).length;
+    let left = null, best = Infinity;
+    xs.forEach(x => { if (fits(x) && covers(x) < best) { best = covers(x); left = x; } });
+    if (left === null) left = Math.min(Math.max(4, r.right + gap), Math.max(4, vw - 4 - w));   // どこも収まらない
+    box.style.left = Math.round(left) + 'px';
+    box.style.top = Math.round(top) + 'px';
+  }
+  /** 「何にするか」を対象日のセルの右隣に */
+  function swapPlaceWant_() {
+    swapPlaceBox_($('swapWant'), swapMode && swapMode.stage === 'want' ? cellAt(swapMode.r, swapMode.t) : null);
+  }
+  /** 案の一覧を、押した交換相手のセルの右隣に */
+  function swapPlaceMate_() {
+    swapPlaceBox_($('swapMate'), swapMode && swapMode.stage === 'plan' && swapMode.mate !== undefined
+      ? cellAt(swapMode.mate, swapMode.d) : null, '#grid td.swapchg, #grid td.swapsel, #grid td.swapmate');
   }
   /** 差し出せる日を並べる。日ごとに案を作り、いちばん良い案の色で塗る */
   function swapOffer_(r, t, want) {
@@ -3846,37 +3943,81 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       + cnt('green') + '・黄 ' + cnt('yellow') + '・赤 ' + cnt('red') + '）。いちばん良い案: ' + swapPlanText_(plans[0])
       + (plans[0].why.length ? '（' + plans[0].why.join('、') + '）' : ''));
   }
-  /** 差し出す日を決めた → 案を一覧にする */
+  /**
+   * 差し出す日を決めた → その日の交換相手のセルを、その人のいちばん良い案の色で示す。
+   * 相手のセルにマウスを乗せると変わるマスと違反を見せ、押すとその人との案をセルの右隣に出して選ぶ
+   */
   function swapPickGive_(c) {
     const plans = swapMode.opts.get(c);
     if (!plans || !plans.length) { swapHover_(c); return; }
+    // 交換相手（差し出す日を受け取る人）ごとに案をまとめる。案は良い順に並んでいる
+    const mates = new Map();
+    plans.forEach(p => {
+      const m = p.changes.find(x => x.c === c && x.r !== swapMode.r);
+      if (!m) return;
+      if (!mates.has(m.r)) mates.set(m.r, []);
+      mates.get(m.r).push(p);
+    });
     swapMode.stage = 'plan';
     swapMode.d = c;
+    swapMode.mates = mates;
+    delete swapMode.mate;
+    swapPanel_(null);
+    swapPaint_();
+    swapPreview_(null);
+    swapStat_('入れ替え: ' + dayLabel_(c) + ' の色の付いた人が交換相手です。マウスを乗せると変わるマスと違反が出ます。'
+      + '押すと案を選べます（' + Array.from(mates.keys()).map(r => ROWS[r].label).join('・') + '。Esc でやめる）');
+  }
+  /** 交換相手のセルにマウスを乗せた。いちばん良い案を表の上で見せ、違反を案内に出す */
+  function swapMateHover_(r) {
+    const plans = swapMode && swapMode.mates && swapMode.mates.get(r);
+    if (!plans) return;
+    if (swapMode.mate !== undefined) return;            // 案の一覧を開いているあいだは、一覧のほうで見せる
+    swapPreview_(plans[0]);
+    swapStat_('入れ替え: ' + ROWS[r].label + ' と → ' + SWAP_LEVEL_TEXT[plans[0].level] + '・' + swapPlanText_(plans[0])
+      + (plans[0].why.length ? '（' + plans[0].why.join('、') + '）' : '')
+      + (plans.length > 1 ? '。ほか ' + (plans.length - 1) + ' 案' : '') + '。押すと選べます');
+  }
+  /** 交換相手のセルを押した → その人との案を、セルの右隣に出す */
+  function swapOpenMate_(r) {
+    const plans = swapMode.mates.get(r);
+    const box = $('swapMate');
+    if (!plans || !box) return;
+    swapMode.mate = r;
     swapPaint_();
     swapPreview_(plans[0]);
-    const row = ROWS[swapMode.r];
-    swapStat_('入れ替え: 案を選んでください。案にマウスを乗せると表の上で見えます（Esc でやめる）');
-    swapPanel_(box => {
-      box.appendChild(el('div', 'swaphead', row.label + ': ' + dayLabel_(swapMode.t) + ' を'
-        + SWAP_CAT_LABEL[swapMode.want] + 'に、' + dayLabel_(c) + ' を差し出す'));
-      plans.forEach(plan => {
-        const b = el('button', 'swapplan swapplan-' + plan.level);
-        b.appendChild(el('span', 'swaplv', SWAP_LEVEL_TEXT[plan.level] + '・' + plan.people + '人'));
-        b.appendChild(el('span', 'swaptxt', swapPlanText_(plan)));
-        if (plan.why.length) b.appendChild(el('span', 'swapwhy', plan.why.join('、')));
-        b.addEventListener('mouseenter', () => swapPreview_(plan));
-        b.addEventListener('focus', () => swapPreview_(plan));
-        b.addEventListener('click', () => {
-          if (plan.level === 'red' && !window.confirm('この入れ替えはルール違反になります。\n\n'
-            + plan.why.join('\n') + '\n\nそれでも入れ替えますか？')) return;
-          swapApply_(plan);
-        });
-        box.appendChild(b);
+    box.textContent = '';
+    box.appendChild(el('div', 'swaphead', ROWS[r].label + ' との入れ替え（' + plans.length + ' 案）'));
+    let first = null;
+    plans.forEach(plan => {
+      const b = el('button', 'swapplan swapplan-' + plan.level);
+      b.type = 'button';
+      b.appendChild(el('span', 'swaplv', SWAP_LEVEL_TEXT[plan.level] + '・' + plan.people + '人'));
+      b.appendChild(el('span', 'swaptxt', swapPlanText_(plan)));
+      if (plan.why.length) b.appendChild(el('span', 'swapwhy', plan.why.join('、')));
+      b.addEventListener('mouseenter', () => swapPreview_(plan));
+      b.addEventListener('focus', () => swapPreview_(plan));
+      b.addEventListener('click', () => {
+        if (plan.level === 'red' && !window.confirm('この入れ替えはルール違反になります。\n\n'
+          + plan.why.join('\n') + '\n\nそれでも入れ替えますか？')) return;
+        swapApply_(plan);
       });
-      const back = el('button', 'swapback', '← 差し出す日を選び直す');
-      back.addEventListener('click', () => swapOffer_(swapMode.r, swapMode.t, swapMode.want));
-      box.appendChild(back);
+      if (!first) first = b;
+      box.appendChild(b);
     });
+    const back = el('button', 'swapback', '← ほかの人を選ぶ');
+    back.type = 'button';
+    back.addEventListener('click', () => {
+      delete swapMode.mate;
+      box.hidden = true;
+      swapPaint_();
+      swapPreview_(null);
+    });
+    box.appendChild(back);
+    box.hidden = false;
+    swapPlaceMate_();
+    if (first) first.focus({ preventScroll: true });
+    swapStat_('入れ替え: ' + ROWS[r].label + ' との案を選んでください。案にマウスを乗せると表の上で見えます（Esc でやめる）');
   }
   /** 案を反映する。動いたセルは「入れ替え」の印（手で入れた扱いで自動生成は触らないが、もう一度入れ替えられる） */
   function swapApply_(plan) {
@@ -3915,6 +4056,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       return true;
     }
     if ((swapMode.stage === 'give' || swapMode.stage === 'plan') && r === swapMode.r && c === swapMode.t) return true;
+    if (swapMode.stage === 'plan' && c === swapMode.d && swapMode.mates && swapMode.mates.has(r)) {
+      swapOpenMate_(r);
+      return true;
+    }
     // 対象日を選ぶ（選び直しも）
     const why = swapLockReason_(row, c);
     if (why) {
@@ -8508,12 +8653,26 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   });
   $('undoBtn').addEventListener('click', undoOnce_);
   $('swapBtn').addEventListener('click', () => { if (swapMode) endSwap_('入れ替えをやめました'); else startSwap_(); });
+  // 表の段のスクロールは段ごとに起きるので、捕まえる側（capture）で拾う
+  const swapFollow_ = () => {
+    if (!swapMode) return;
+    if (swapMode.stage === 'want') swapPlaceWant_();
+    if (swapMode.stage === 'plan' && swapMode.mate !== undefined) swapPlaceMate_();
+  };
+  document.addEventListener('scroll', swapFollow_, true);
+  window.addEventListener('resize', swapFollow_);
   // 差し出す日にマウスを乗せたら、交換先を見せる
   $('grid').addEventListener('mouseover', ev => {
-    if (!swapMode || swapMode.stage !== 'give') return;
+    if (!swapMode || (swapMode.stage !== 'give' && swapMode.stage !== 'plan')) return;
     const cell = ev.target.closest('td.cell');
     if (!cell) return;
     const r = Number(cell.dataset.row), c = Number(cell.dataset.col);
+    if (swapMode.stage === 'plan') {
+      // 交換相手のセルなら、その人のいちばん良い案と違反を見せる
+      if (c === swapMode.d && swapMode.mates && swapMode.mates.has(r)) swapMateHover_(r);
+      else if (swapMode.mate === undefined) swapPreview_(null);
+      return;
+    }
     if (r === swapMode.r && swapMode.opts.has(c)) swapHover_(c); else swapPreview_(null);
   });
   document.addEventListener('keydown', ev => {
