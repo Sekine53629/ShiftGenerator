@@ -149,12 +149,26 @@ body {
 
 /* ── 操作列 ──────────────────────────────────────────── */
 .toolbar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 5px;
   padding: 5px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
 }
-.group { display: flex; align-items: center; gap: 6px; }
+/* 段。段の中は、画面の幅が足りないときだけ折り返す（文字の長さでは動かない） */
+.tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px; min-width: 0; }
+/* 保存先フォルダに繋がっていれば、見出しごと隠す（見出しだけが残らないように） */
+.tb-fs:has(> #fsBtn[hidden]) { display: none; }
+/* 出力は1段目の右端に固定 */
+.tb-out { margin-left: auto; }
+/* 状態の文字。いつも1行ぶんの高さで、長いときは「…」で切る（ボタンを動かさない） */
+.tb-stat {
+  height: 17px; line-height: 17px; font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.tb-stat > .note:empty { display: none; }
+/* 区切りは、文字のある欄どうしの間にだけ入れる */
+.tb-stat > .note:not(:empty) ~ .note:not(:empty)::before { content: '／'; margin: 0 8px; color: var(--ink-faint); }
+.group { display: flex; align-items: center; gap: 6px; flex: none; }
 .group > .lbl {
   font-size: 10px; font-weight: 700; letter-spacing: .14em;
   color: var(--ink-faint); text-transform: uppercase;
@@ -462,9 +476,8 @@ td.cell.swapped { position: relative; }
 td.cell.swapped::before {
   content: '⇄'; position: absolute; right: 1px; top: 0; font-size: 8px; color: var(--accent); line-height: 1;
 }
-.swapstat { font-weight: 700; color: var(--ink); flex: 1 1 260px; min-width: 200px; }
+.swapstat { font-weight: 700; color: var(--ink); }
 .toolbar button { white-space: nowrap; }
-.toolbar .group:has(#swapStat) { flex-wrap: wrap; flex: 1 1 auto; }
 .swappanel {
   position: fixed; right: 16px; bottom: 16px; z-index: 50; width: min(440px, calc(100vw - 32px));
   max-height: 45vh; overflow: auto; background: var(--surface); color: var(--ink);
@@ -575,6 +588,20 @@ tr.aggrow .nm { font-weight: 700; }
   display: inline-block; flex: none;
 }
 .pn-memo { flex: 1; min-width: 0; }
+/* 1on1 日程の入力欄。狭い画面では注記の下へ回る */
+.printnote { flex-wrap: wrap; }
+.pn-memo { flex-basis: 320px; }
+.pn-1on1 { flex: 0 1 340px; min-width: 260px; }
+.pn-1on1-h { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-soft); margin-bottom: 3px; }
+.oneon { border-collapse: collapse; width: 100%; font-size: 12px; }
+.oneon td { padding: 1px 2px; }
+.oneon input, .oneon select {
+  width: 100%; font: inherit; padding: 2px 5px; min-height: 0;
+  border: 1px solid var(--rule-soft); border-radius: 3px; background: var(--surface); color: var(--ink);
+}
+.oneon td.d { width: 8.5em; }
+.oneon td.x { width: 1.8em; }
+.oneon td.x button { min-height: 0; padding: 0 5px; font-size: 11px; }
 .pn-memo label {
   display: flex; align-items: center; gap: 8px;
   font-size: 11px; color: var(--ink-soft); margin-bottom: 3px;
@@ -795,7 +822,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   .toolbar, .toolbar2, .palettebar, .legend, .holiday-bar, .tabs, #gridWarn,
   .panel:not(.on), #appVer, #toolMore, #themeSel { display: none !important; }
   /* 注記は入力欄ではなく本文として刷る */
-  .pn-memo label, .pn-memo textarea { display: none !important; }
+  .pn-memo label, .pn-memo textarea, .pn-1on1 { display: none !important; }
   .pn-print { display: block !important; }
   .printnote { padding: 8px 0 0; page-break-inside: avoid; }
   .scroll { max-height: none; overflow: visible; }
@@ -856,8 +883,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   /* タブは折り返さず横に流す。3段に折り返すと表が画面から消える */
   .tabs { flex-wrap: nowrap; overflow-x: auto; }
   .tabs button { flex: none; }
-  /* 1段目は折り返して全部見せる。横に隠れると押せないボタンができる */
-  .toolbar { flex-wrap: wrap; }
+  /* 狭い画面は段の中で折り返して全部見せる。横に隠れると押せないボタンができる */
+  .tb-row { flex-wrap: wrap; }
+  .tb-out { margin-left: 0; }
   .toolbar button { font-size: 12px; padding: 0 9px; }
   .toolbar .group { flex-wrap: wrap; }
   #storeSel { max-width: 130px; }
@@ -1012,10 +1040,20 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 .ps-grid td.ah { font-size: .62em; letter-spacing: -.06em; }   /* 「5診出勤」が列に入る大きさ */
 .ps-grid td.neg { color: #c00; }
 .ps-grid tr.gap td { height: 2mm; }
-.ps-foot { display: flex; gap: 12mm; margin-top: 2mm; font-size: 8pt; line-height: 4.2mm; }
-.ps-legend { flex: none; min-width: 55mm; }
-.ps-memo { flex: 1; min-width: 0; }
-.ps-marks { display: flex; flex-wrap: wrap; gap: 0 6mm; font-size: 8pt; line-height: 4.2mm; }
+/* 下の段。左の列に 凡例 → 色の印の説明（縦）、右の列に 注記 → 1on1 日程。左の列の幅は長いほうに合わせる */
+.ps-foot {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 12mm;
+  margin-top: 2mm; font-size: 8pt; line-height: 4.2mm;
+}
+.ps-legend { min-width: 55mm; }
+.ps-memo { min-width: 0; }
+/* 1on1 日程。見本と同じく「氏名・日付」の組を3つ並べる。組（2列）ごとに同じ色で塗る */
+.ps-1on1 { margin-top: 1mm; }
+.ps-1on1 table { border-collapse: collapse; }
+.ps-1on1 td { border: .2mm solid #000; height: 4.2mm; padding: 0 2mm; white-space: nowrap; }
+.ps-1on1 td.n { min-width: 20mm; }
+.ps-1on1 td.d { min-width: 16mm; text-align: center; font-weight: 400; }
+.ps-marks { margin-top: 1mm; font-size: 8pt; line-height: 4.4mm; white-space: nowrap; }
 .ps-marks i {
   display: inline-block; width: 6mm; height: 3.2mm; margin-right: 1.5mm;
   vertical-align: -.6mm; border: .2mm solid #000;
@@ -1186,7 +1224,18 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
 <!-- ══ シフト表 ══════════════════════════════════════ -->
 <section class="panel on" data-panel="grid" id="gridPanel">
+  <!--
+    操作列。**段を決めて固定する。**（現場の指定 2026-10）
+    以前は1つの段に全部を流していたので、「保存しました」などの文字の長さが変わるたびに
+    折り返しが変わり、ボタンが上下左右に動いて押し間違えた。
+      1段目 … 店舗・年月・表示 ／ 医師シフトの取り込み・シフトの消去。右端に出力（PDF・スプレッドシート）
+      2段目 … 自動生成・確定・入れ替え ／ 控え・戻す・進める ／ 保存先（未接続のときだけ）
+      3段目 … 状態の文字だけ（1行。収まらない分は「…」。全文はマウスを乗せると出る）
+    「医師シフトを消す」は外した（現場の指定 2026-10。取り込み直せば医師名欄は入れ替わる）。
+    段の中は、画面の幅が足りないときだけ折り返す。状態の文字は別の段なので、文字の長さでは動かない
+  -->
   <div class="toolbar">
+    <div class="tb-row">
     <div class="group">
       <span class="lbl">店舗</span>
       <select id="storeSel"></select>
@@ -1205,42 +1254,49 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <button data-zoom="42">大</button>
     </div>
     <div class="group">
-      <button id="autoRun" class="primary">自動生成</button>
-      <button id="finalBtn" title="この月のシフトを確定します。次に開いたときは翌月から始まります（確定したあとも直せます）"
-        >この月を確定</button>
-      <button id="swapBtn" title="ある日を休みか早番にしたいとき、代わりに差し出す日を選び、ほかの人との交換（3人まで）でつなぎます。押して、その人の対象日を押します（Esc でやめる）"
-        aria-pressed="false">入れ替え</button>
-      <button id="histNow" title="いまの状態を控えます">控えを取る</button>
-      <button id="undoBtn" title="ひとつ前の控えに戻ります（Ctrl+Z）">← 戻す</button>
-      <button id="redoBtn" title="戻しすぎたぶんを進めます（Ctrl+Y）">進める →</button>
       <button id="docIn"
         title="送られてきた「◯年◯月医師シフト.xlsx」を読んで、医師名欄を埋めます"
         >医師シフトを取り込む</button>
       <input type="file" id="docInFile" accept=".xlsx" hidden>
-      <button id="clearDoc" title="開いている月の医師名欄だけを消します。スタッフのシフトは残ります"
-        >医師シフトを消す</button>
       <button id="clearStaff" title="開いている月のスタッフ・派遣・事務・備考・色の印を消します。医師名欄は残ります"
         >シフトを消す（医師以外）</button>
-      <span class="note" id="undoStat"></span>
-      <span class="note swapstat" id="swapStat" role="status" aria-live="polite"></span>
-      <div class="swappanel" id="swapPanel" hidden></div>
-      <div class="swapwant" id="swapWant" role="group" aria-label="この日を何にするか" hidden></div>
-      <div class="swapwant swapmatebox" id="swapMate" role="group" aria-label="この人との入れ替え案" hidden></div>
     </div>
-    <div class="group">
+    <div class="group tb-out">
       <span class="lbl">出力</span>
       <button id="outPdf"
         title="印刷画面を開きます。保存先に「PDF に保存」を選んでください">PDF</button>
       <button id="outXlsx"
         title="開いているスプレッドシートに、新しいシートとして書き出します（Google に繋がっていないときは .xlsx で保存します）"
         >スプレッドシート</button>
-      <span class="note" id="outStat"></span>
+    </div>
+    </div>
+    <div class="tb-row">
+    <div class="group">
+      <button id="autoRun" class="primary">自動生成</button>
+      <button id="finalBtn" title="この月のシフトを確定します。次に開いたときは翌月から始まります（確定したあとも直せます）"
+        >この月を確定</button>
+      <button id="swapBtn" title="ある日を休みか早番にしたいとき、代わりに差し出す日を選び、ほかの人との交換（3人まで）でつなぎます。押して、その人の対象日を押します（Esc でやめる）"
+        aria-pressed="false">入れ替え</button>
+      <div class="swappanel" id="swapPanel" hidden></div>
+      <div class="swapwant" id="swapWant" role="group" aria-label="この日を何にするか" hidden></div>
+      <div class="swapwant swapmatebox" id="swapMate" role="group" aria-label="この人との入れ替え案" hidden></div>
     </div>
     <div class="group">
+      <button id="histNow" title="いまの状態を控えます（操作のたびに自動でも控えています）">控えを取る</button>
+      <button id="undoBtn" title="ひとつ前の操作の前に戻ります（Ctrl+Z）">← 戻す</button>
+      <button id="redoBtn" title="戻しすぎたぶんを進めます（Ctrl+Y）">進める →</button>
+    </div>
+    <div class="group tb-fs">
       <span class="lbl">保存先</span>
       <button id="fsBtn" hidden>保存先フォルダを選ぶ（初回だけ）</button>
-      <span class="note" id="fsStat"></span>
+    </div>
+    </div>
+    <div class="tb-stat" id="tbStat">
+      <span class="note swapstat" id="swapStat" role="status" aria-live="polite"></span>
+      <span class="note" id="undoStat"></span>
+      <span class="note" id="outStat"></span>
       <span class="note" id="docInStat"></span>
+      <span class="note" id="fsStat"></span>
     </div>
   </div>
 
@@ -1302,6 +1358,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       <textarea id="monthMemo" rows="5" spellcheck="false"
         placeholder="【休憩について】早番薬剤師→13時〜14時（薬剤師4名体制のときのみ、薬剤師3名の日は14時〜15時）&#10;【医事メンバー】○早番は受付で処方入力、▲遅番はピッキング、午後から交代&#10;【1on1日程】…"></textarea>
       <div class="pn-print" id="monthMemoPrint"></div>
+    </div>
+    <!-- 1on1 日程。氏名は薬剤師と事務の全員（派遣を除く）を既定で読み込み、日付は手で入れる。印刷と Excel に表で出る -->
+    <div class="pn-1on1">
+      <div class="pn-1on1-h">1on1日程（印刷・Excel に出ます）
+        <button id="oneOnAdd" class="linkish">行を追加</button>
+        <button id="oneOnReset" class="linkish"
+          title="薬剤師と事務の全員（派遣を除く）の名前を読み直します。入れた日付は消えます">名前を読み直す</button>
+      </div>
+      <table class="oneon" id="oneOnTable"></table>
     </div>
   </div>
 
@@ -1670,11 +1735,22 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * 配った控えと手元のものが同じか、これが無いと分からない。
    * コードを変えたら必ず上げること（GAS 側の CONFIG.APP_VERSION と同じ考え方）。
    */
-  const APP_VERSION = '1.22.0';
+  const APP_VERSION = '1.23.0';
   const STORE_KEY = 'shiftgrid.db.v1';      // マスタ
   const CELLS_KEY = 'shiftgrid.cells.v1';   // シフトの中身（月ごとの注記も含む）
   /** 月ごとの注記のキー。'memo|yyyy-mm' で values に同居させる */
   const memoKey = () => 'memo|' + curYm;
+  /** 月ごとの 1on1 日程のキー。'oneon|yyyy-mm'。中身は [{ n: 氏名, d: 日（0 = 未定） }] の JSON */
+  const oneOnKey = () => 'oneon|' + curYm;
+  /** 1on1 日程の行の上限と、組（氏名・日付の2列）ごとの色。見本と同じく 1組目 緑・2組目 黄・3組目 橙 */
+  const ONEON_MAX = 60;
+  const ONEON_COLORS = ['#E2EFDA', '#FFF2CC', '#FCE4D6', '#DDEBF7', '#EDE2F6', '#D9F2F2'];
+  /** いま描いてある 1on1 日程（月と中身）。同じなら組み直さない（renderOneOn_） */
+  let oneOnDrawn = '';
+  /** 月ごとに持つ欄（注記 'memo|yyyy-mm'・1on1 日程 'oneon|yyyy-mm'）のキーか */
+  function isMonthNoteKey_(k) {
+    return /^(memo|oneon)\|\d{4}-\d{2}$/.test(String(k));
+  }
   /**
    * 色の印のキー。記号とは別の層なので、行キーの前に 'mark:' を付けて
    * 同じ values に同居させる。こうすると保存も編集履歴も書き出しも
@@ -1683,6 +1759,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   const markKey = (row, c) =>
     'mark:' + row.key + '|' + curYm + '|' + (days[c] ? days[c].day : c + 1);
   const getMark = (row, c) => values.get(markKey(row, c)) || '';
+  /**
+   * 自動生成が付けた発注担当の印の目印。値は付けた印の id（次の自動生成で外して付け直す）。
+   * 自動で付いた印を手で外したら OMARK_OFF にする（次の自動生成でも付けない）。手で付けた印には無い
+   */
+  const OMARK_OFF = '-';
+  const omarkKey = (row, c) =>
+    'omark:' + row.key + '|' + curYm + '|' + (days[c] ? days[c].day : c + 1);
   /**
    * 手で入れたセルの印。**自動生成はこの印のあるセルを書き換えない**（休みも出勤も）。
    * 自動生成が置いた記号と、手で入れた記号は、記号だけでは見分けられないため。
@@ -1787,6 +1870,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       availDow: (avail || ALL).slice(),
       fixedDow: (fixed || NONE).slice(),
       wantOffDow: NONE.slice(),
+      orderDow: NONE.slice(),
       canClose: close, from: '', to: '', rule: rule, memo: '',
       hq: false, stores: ['st1']
     });
@@ -1908,10 +1992,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         '【休憩について】早番→13時〜14時（薬剤師4名体制のときのみ、'
         + '薬剤師3名の日は14時〜15時）／その他メンバー→14時〜15時\n'
         + '【医事メンバー】○早番は受付で処方入力、▲遅番はピッキング、'
-        + '午後から交代。▲→薬局に残り14時〜15時受付担当\n'
-        + '薬品発注担当（土曜日と祝日の前日は発注作業なし）\n'
-        + '備品発注日（週1）\n'
-        + '【1on1日程】',
+        + '午後から交代。▲→薬局に残り14時〜15時受付担当',
 
       notes: [
         { id: 'n1', text: '銀行', desc: '銀行対応の日', order: 1 },
@@ -2009,6 +2090,9 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         // 連続出勤の目安。上限（4）は守る規則のまま、まず3連勤までで組み、置ききれない人だけ上限まで延ばす。0 で使わない
         softCons: 3,
         needCloser: true,
+        // 薬品発注。社員マスタ「薬品発注の曜日」の人に、その曜日の発注日に付ける色の印（色の印マスタの id）。
+        // 実物の凡例「薬品発注担当（土曜日と祝日の前日は発注作業なし）」から、土曜と祝日・休業日の前日は発注しない
+        orderMark: 'mk1', orderNoSat: true, orderNoPreHoliday: true,
         wishMax: 3,
         carryOver: true   // 前月末の連勤は常に引き継ぐ（seamRunOf_）。切り替えは無く、この値は読まない
       }
@@ -2217,6 +2301,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       x.availDow = normDow_(x.availDow, 1);
       x.fixedDow = normDow_(x.fixedDow, 0);
       x.wantOffDow = normDow_(x.wantOffDow, 0);   // あとから足した。既定は「無し」
+      x.orderDow = normDow_(x.orderDow, 0);       // 薬品発注の曜日（あとから足した）。既定は「無し」
       if (x.hireDate === undefined) x.hireDate = '';           // 有休管理（あとから足した）
       x.leaveManaged = !!x.leaveManaged;
       x.patterns = Array.isArray(x.patterns) ? x.patterns.slice() : [];
@@ -2337,7 +2422,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       Object.keys(o).forEach(k => {
         // '<行キー>|yyyy-mm|日' の形だけを通す。壊れた控えで表を壊さない
         const okCell = /^[^|]+\|\d{4}-\d{2}\|\d{1,2}$/.test(k);
-        const okMemo = /^memo\|\d{4}-\d{2}$/.test(k);
+        const okMemo = isMonthNoteKey_(k);
         if ((okCell || okMemo) && o[k]) {
           values.set(k, String(o[k]));
           n++;
@@ -2414,7 +2499,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /**
-   * シフトの中身を月ごとに分ける。キーは '<行キー>|yyyy-mm|日' と 'memo|yyyy-mm'。
+   * シフトの中身を月ごとに分ける。キーは '<行キー>|yyyy-mm|日' と 'memo|yyyy-mm'・'oneon|yyyy-mm'。
    * 値の無いもの・形の違うものは捨てる。**Map を受けて物を返すだけ**（テストできる形）。
    *
    * 1つのファイルに全部の月を入れていると、1か所直すたびに全部の月を書き直すうえ、
@@ -2428,7 +2513,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     map.forEach((v, k) => {
       if (!v) return;
       const p = String(k).split('|');
-      const ym = p.length === 3 ? p[1] : (p.length === 2 && p[0] === 'memo' ? p[1] : '');
+      const ym = p.length === 3 ? p[1] : (p.length === 2 && isMonthNoteKey_(k) ? p[1] : '');
       if (!/^\d{4}-\d{2}$/.test(ym)) return;
       (out[ym] = out[ym] || {})[k] = v;
     });
@@ -2550,7 +2635,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         values.clear();
         Object.keys(cells).forEach(k => {
           const okCell = /^[^|]+\|\d{4}-\d{2}\|\d{1,2}$/.test(k);
-          const okMemo = /^memo\|\d{4}-\d{2}$/.test(k);
+          const okMemo = isMonthNoteKey_(k);
           if ((okCell || okMemo) && cells[k]) values.set(k, String(cells[k]));
         });
       }
@@ -3188,8 +3273,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   function renderGrid() {
+    try { renderGridBody_(); } finally { scheduleSnapshot_('開いた時点'); }
+  }
+
+  function renderGridBody_() {
     const y = Number($('yy').value), m = Number($('mm').value);
-    if (curYm !== y + '-' + String(m).padStart(2, '0')) markEdited_();  // 月が変わったら遡りを忘れる
+    if (curYm !== y + '-' + String(m).padStart(2, '0')) {
+      flushSnapshot_();          // 前の月の、まだ控えていない操作を控える
+      undoPos = -1;              // 月が変わったら遡りを忘れる
+    }
     curYm = y + '-' + String(m).padStart(2, '0');
     curYear_ = y;
     curMonth_ = m;
@@ -3638,15 +3730,39 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     return v && pubOffSyms().indexOf(v) >= 0 && wish.indexOf(v) < 0 ? 'O' : null;
   }
   /**
+   * 薬品発注をする日か。営業日で、土曜（自動生成ルールで外せる）と、祝日・休業日の前日を除く。
+   * 月末は翌月1日を暦から見る
+   */
+  function isOrderDay_(c) {
+    const d = days[c];
+    if (!d || !d.inMonth || !d.open) return false;
+    if (DB.rules.orderNoSat !== false && d.dow === 6) return false;
+    if (DB.rules.orderNoPreHoliday !== false) {
+      let n = days[c + 1];
+      if (!n || !n.inMonth) {
+        const ny = curMonth_ === 12 ? curYear_ + 1 : curYear_, nm = curMonth_ === 12 ? 1 : curMonth_ + 1;
+        n = buildDays(ny, nm, true)[0];
+      }
+      if (n.holiday || !n.open) return false;
+    }
+    return true;
+  }
+  /** その人が薬品発注を担当する日か（社員マスタ「薬品発注の曜日」の発注日） */
+  function orderDayFor_(s, c) {
+    return !!(s && s.orderDow && days[c] && s.orderDow[days[c].dow]) && isOrderDay_(c);
+  }
+
+  /**
    * 契約で決まっている日。希望休と同じく入れ替えの対象にしない。
-   * 休業日・その人が出られない曜日（契約上の休み）・必ず出る曜日（契約上の出勤。固定曜日の人は全部の日がどちらか）
+   * 休業日・その人が出られない曜日（契約上の休み）・必ず出る曜日（契約上の出勤。固定曜日の人は全部の日がどちらか）・
+   * 薬品発注を担当する日
    */
   function contractDay_(row, c) {
     const s = row.staff, d = days[c];
     if (!s || !d) return false;
     if (!d.open) return true;
     if (s.availDow && !s.availDow[d.dow]) return true;
-    return !!(s.fixedDow && s.fixedDow[d.dow]);
+    return !!(s.fixedDow && s.fixedDow[d.dow]) || orderDayFor_(s, c);   // 発注を担当する日も動かさない
   }
   /** 入れ替えで動かしてよいセルか。動かせないなら理由を返す（よければ ''） */
   function swapLockReason_(row, c) {
@@ -4083,6 +4199,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   function swapApply_(plan) {
     try {
       snapshot_('入れ替えの直前');
+      markEdited_('入れ替え');
       plan.changes.forEach(x => {
         const row = ROWS[x.r];
         setV(row, x.c, x.to);
@@ -4094,7 +4211,6 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           values.delete(swapKey(row, x.c));
         }
       });
-      markEdited_();
       plan.changes.forEach(x => paintCell(ROWS[x.r], x.c));
       recalc();
       renderHistory();
@@ -4145,11 +4261,16 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     if (st.kind === 'mark') {
       // 記号は消さない。背景だけを塗る。同じ色をもう一度押すと外す
       const k = markKey(row, c);
+      const auto = values.get(omarkKey(row, c));
       if (values.get(k) === st.value) values.delete(k); else values.set(k, st.value);
+      // 手で付け替えた印は、自動生成で外さない。自動で付いた発注担当の印を外したなら、次も付けない
+      if (auto && auto !== OMARK_OFF && !values.get(k)) values.set(omarkKey(row, c), OMARK_OFF);
+      else if (values.get(k)) values.delete(omarkKey(row, c));
     } else if (st.kind === 'clear') {
       // 消去は記号と色の両方を落とす
       setV(row, c, '');
       values.delete(markKey(row, c));
+      values.delete(omarkKey(row, c));
       values.delete(handKey(row, c));
       values.delete(swapKey(row, c));
     } else {
@@ -4424,9 +4545,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         p.label + (p.start && p.end ? '　' + p.start + '〜' + p.end : '')));
       box.appendChild(line);
     });
-    const off = byOrder(DB.patterns).filter(p => !p.work)
-      .map(p => p.sym + (p.pubOff ? '（公休枠）' : '')).join('　');
-    if (off) box.appendChild(el('div', '', off));
+    // 休みの記号（公休・希休・有休など）は書かない。表を見れば分かり、現場の指定（2026-10）で外した
 
     // 色の印。何色が何を指すのかは、紙にも書いておかないと伝わらない。
     // 1色1行にすると縦に伸びて紙からはみ出すので、横に流す
@@ -4453,6 +4572,59 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     const memo = values.has(memoKey()) ? values.get(memoKey()) : (DB.memoDefault || '');
     $('monthMemo').value = memo;
     $('monthMemoPrint').textContent = memo;
+    renderOneOn_();
+  }
+
+  /**
+   * 1on1 日程の入力欄を描く。**中身か月が変わったときだけ組み直す。**
+   * 注記はスタンプのたびに描き直されるので、毎回組み直すと、入力中の欄が作り直されて文字が消える
+   */
+  function renderOneOn_() {
+    const box = $('oneOnTable');
+    if (!box) return;
+    const list = oneOnRows_();
+    const sig = curYm + '|' + JSON.stringify(list);
+    if (sig === oneOnDrawn) return;
+    oneOnDrawn = sig;
+    const inM = days.filter(d => d.inMonth);
+    box.textContent = '';
+    list.forEach((x, i) => {
+      const tr = el('tr');
+      const tdN = el('td', 'n');
+      const name = el('input');
+      name.type = 'text';
+      name.value = x.n;
+      name.maxLength = 40;
+      name.dataset.i = String(i);
+      name.setAttribute('aria-label', (i + 1) + '行目の氏名');
+      tdN.appendChild(name);
+      const tdD = el('td', 'd');
+      const sel = el('select');
+      sel.dataset.i = String(i);
+      sel.setAttribute('aria-label', (i + 1) + '行目の日付');
+      sel.appendChild(new Option('日付…', '0'));
+      inM.forEach(d => sel.appendChild(new Option(d.day + '日（' + DOW[d.dow] + '）', String(d.day))));
+      sel.value = String(x.d || 0);
+      tdD.appendChild(sel);
+      const tdX = el('td', 'x');
+      const del = el('button', '', '×');
+      del.dataset.del = String(i);
+      del.title = 'この行を消す';
+      tdX.appendChild(del);
+      tr.appendChild(tdN); tr.appendChild(tdD); tr.appendChild(tdX);
+      box.appendChild(tr);
+    });
+  }
+
+  /** 1on1 日程を保存する。空にしたときも記録する（消さないと既定が戻ってきてしまう） */
+  function saveOneOn_(list) {
+    try {
+      values.set(oneOnKey(), JSON.stringify(list));
+      markEdited_();
+      saveCells();
+    } catch (e) {
+      console.error('[saveOneOn_] ' + e.message + ' / ' + e.stack);
+    }
   }
 
   /** 'hh:mm' → 分。読めなければ null */
@@ -5528,6 +5700,49 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     }
   }
 
+  /**
+   * 薬品発注の担当の印を付ける（現場の指定 2026-10）。
+   * 社員マスタ「薬品発注の曜日」の人が、その曜日の発注日（isOrderDay_）に出ていれば、
+   * そのセルに自動生成ルール「発注担当の印」の色の印を付ける。記号は変えない。
+   * 自動で付けた印には目印（omarkKey）を残し、次の自動生成で外してから付け直す。
+   * 手で付けた色の印のあるセルは触らない。自動で付いた印を手で外した日にも付けない。
+   * 担当の人が休みの発注日は表の下に申し送る
+   */
+  function applyOrderMarks_() {
+    try {
+      // 前回、自動で付けた印を外す（あとから手で付け替えた印は目印が消えているので残る）
+      Array.from(values.keys()).forEach(k => {
+        if (k.indexOf('omark:') !== 0 || k.split('|')[1] !== curYm) return;
+        if (values.get(k) === OMARK_OFF) return;          // 手で外した日。付け直さないので目印は残す
+        const mk = 'mark:' + k.slice('omark:'.length);
+        if (values.get(mk) === values.get(k)) values.delete(mk);
+        values.delete(k);
+      });
+      const mark = (DB.marks || []).find(k => k.id === DB.rules.orderMark);
+      const miss = [];
+      ROWS.forEach(row => {
+        const s = row.staff;
+        if (row.kind !== 'staff' || !s || !s.orderDow || !s.orderDow.some(v => v)) return;
+        for (let c = 0; c < DAY_COLS; c++) {
+          if (!orderDayFor_(s, c)) continue;
+          if (!isWork(get(row, c))) { miss.push(days[c].day + '日（' + s.name + '）'); continue; }
+          if (!mark || getMark(row, c)) continue;          // 手で付けた印は残す
+          if (values.get(omarkKey(row, c)) === OMARK_OFF) continue;   // 手で外した日は付けない
+          values.set(markKey(row, c), mark.id);
+          values.set(omarkKey(row, c), mark.id);
+        }
+      });
+      if (!mark && ROWS.some(r => r.staff && r.staff.orderDow && r.staff.orderDow.some(v => v))) {
+        note_('「薬品発注の曜日」の人がいますが、自動生成ルールの「発注担当の印」が選ばれていないので、印は付けていません');
+      }
+      if (miss.length) {
+        note_('薬品発注の担当の人が休みの発注日があります: ' + miss.join('、') + '。その日の担当は手で付けてください');
+      }
+    } catch (e) {
+      console.error('[applyOrderMarks_] ' + e.message + ' / ' + e.stack);
+    }
+  }
+
   function autoGenerate() {
     const offSym = (DB.patterns.find(p => !p.work) || { sym: '公休' }).sym;
     const weeks = buildWeeks();
@@ -5550,6 +5765,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     placeWithSoftCons_(weeks, offSym);
 
     assignShiftSymbols_(manual);
+
+    applyOrderMarks_();
 
     ROWS.forEach(row => { if (row.kind === 'staff') paintRow(row); });
     recalc();
@@ -6139,7 +6356,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     // 2. 出られない日 … 休業日と、本人が出られない曜日。候補にしない
     const forced = new Set(inMonth.filter(c =>
-      !keep.has(c) && (!days[c].open || !s.availDow[days[c].dow])));
+      !keep.has(c) && (!days[c].open || (!s.availDow[days[c].dow] && !(s.orderDow && orderDayFor_(s, c))))));
     const free = inMonth.filter(c => !keep.has(c) && !forced.has(c));
 
     // 3. 公休枠。公休ノルマを当てるのは 通常 だけ。固定曜日・週N日は出勤日が先に
@@ -6151,8 +6368,21 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     }
     const extraOff = usesQuota(s) ? Math.max(0, room - forced.size) : 0;
 
-    // 4. 「必ず出る曜日」は、どのルールでも出勤で確定させる
-    const mustWork = new Set(free.filter(c => s.fixedDow[days[c].dow]));
+    // 4. 「必ず出る曜日」は、どのルールでも出勤で確定させる。薬品発注を担当する日も同じ（現場の指定 2026-10）。
+    //    手で入れた休みの日は free に無いので休みのまま（その日は担当の印が付かず、表の下に出る）
+    const hasOrder = !!(s.orderDow && s.orderDow.some(v => v));
+    const orderOn = c => hasOrder && orderDayFor_(s, c);
+    const mustWork = new Set(free.filter(c => s.fixedDow[days[c].dow] || orderOn(c)));
+    if (hasOrder) {
+      s.orderDow.forEach((v, i) => {
+        if (v && !s.availDow[i]) {
+          note_(s.name + '：' + DOW[i] + '曜が「薬品発注の曜日」なのに「出られる曜日」から外れています（出勤にしました）');
+        }
+        if (v && s.wantOffDow && s.wantOffDow[i]) {
+          note_(s.name + '：' + DOW[i] + '曜が「薬品発注の曜日」と「できるだけ休みたい曜日」の両方に入っています（出勤を優先しました）');
+        }
+      });
+    }
     s.fixedDow.forEach((v, i) => {
       if (v && !s.availDow[i]) {
         note_(s.name + '：' + DOW[i] + '曜が「必ず出る曜日」なのに'
@@ -6189,7 +6419,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
         note_(s.name + '：勤務ルールが「固定曜日」ですが「必ず出る曜日」が未設定なので、'
           + '「出られる曜日」（' + dowNames_(s.availDow) + '）に出る扱いにしました');
       }
-      first = free.filter(c => dows[days[c].dow]);
+      first = free.filter(c => dows[days[c].dow] || orderOn(c));
       if (!first.length) {
         note_(s.name + '：出る曜日が1つも無いので、出勤日がありません。'
           + '「必ず出る曜日」か「出られる曜日」を設定してください');
@@ -7336,6 +7566,8 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { key: 'weekendOffN', head: '土日どちらか休み（月◯回）', type: 'num', min: 0, max: 5, ph: '希望なし',
         group: '配置ルール（この人だけに効く）' },
       { key: 'canClose',   head: '締め作業',    type: 'check', group: '資格' },
+      // 薬品発注の担当。その曜日の発注日は必ず出勤にし、自動生成で発注担当の色の印を付ける
+      { key: 'orderDow',   head: '薬品発注の曜日', type: 'dow', group: '担当' },
       { key: 'from',       head: '在籍 開始',   type: 'text', w: 82, ph: 'yyyy-mm', check: okYearMonth, hint: HINT_YM, group: '在籍' },
       { key: 'to',         head: '在籍 終了',   type: 'text', w: 82, ph: 'yyyy-mm', check: okYearMonth, hint: HINT_YM, group: '在籍' },
       { key: 'rule',       head: '勤務ルール',  type: 'select', opts: RULE_OPTS, group: '在籍' },
@@ -8284,6 +8516,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       id: newId('s'), name: '', kind: '薬剤師', employment: '社員',
       weekDays: 5, annualOff: '', maxCons: 4, patterns: ['○', '●', '▲'],
       availDow: [1, 1, 1, 1, 1, 1, 1], fixedDow: [0, 0, 0, 0, 0, 0, 0],
+      wantOffDow: [0, 0, 0, 0, 0, 0, 0], orderDow: [0, 0, 0, 0, 0, 0, 0],
       canClose: false, from: '', to: '', rule: RULE_NORMAL, memo: '',
       hq: false, stores: [activeStore]
     }),
@@ -8415,6 +8648,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       { note: '自動生成のあとと、手で直したあとの両方に効きます。自動生成が置くときの上限は、'
              + '社員マスタの週勤務日数・連続出勤上限（空なら上の「連続と休み」の既定値）です。' }
     ]},
+    { title: '薬品発注', items: [
+      { note: '社員マスタの「薬品発注の曜日」の人は、その曜日の発注日を必ず出勤にし、自動生成でそのセルに下の色の印を付けます（記号は変えません）。'
+             + '担当の人が休みの発注日は、表の下に出します。' },
+      { key: 'orderMark', label: '発注担当の印', type: 'select',
+        opts: () => [{ v: '', label: '付けない' }].concat(byOrder(DB.marks || []).filter(k => k.label)
+          .map(k => ({ v: k.id, label: k.label }))) },
+      { key: 'orderNoSat', label: '土曜日は発注しない', type: 'check' },
+      { key: 'orderNoPreHoliday', label: '祝日・休業日の前日は発注しない', type: 'check' }
+    ]},
     { title: 'スキル', items: [
       { key: 'needCloser', label: '締め作業ができる人を毎日1名以上', type: 'check' },
       { note: '営業日・営業時間・曜日別の必要人数・休業日は 店舗営業マスタ が正です。' }
@@ -8434,12 +8676,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           const f = el('div', 'field');
           f.appendChild(el('span', '', it.label));
           const sel = document.createElement('select');
-          it.opts.forEach(o => {
+          const opts = typeof it.opts === 'function' ? it.opts() : it.opts;   // 色の印のように、マスタから作る選択肢もある
+          opts.forEach(o => {
             const op = document.createElement('option');
             op.value = o.v; op.textContent = o.label;
             sel.appendChild(op);
           });
-          sel.value = DB.rules[it.key] || it.opts[0].v;
+          sel.value = DB.rules[it.key] !== undefined && opts.some(o => o.v === DB.rules[it.key]) ? DB.rules[it.key] : opts[0].v;
           sel.addEventListener('change', () => {
             DB.rules[it.key] = sel.value; save(); refreshAll();
           });
@@ -8824,10 +9067,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   arm($('autoRun'), 'もう一度押すと生成', () => withBusy_('自動生成しています…', () => {
     snapshot_('自動生成の直前');
-    markEdited_();
+    markEdited_('自動生成');
     autoGenerate();
     renderHistory();
-    undoStat_('自動生成の直前を控えました。「戻す」で元に戻せます');
+    undoStat_('自動生成しました。「戻す」で生成の前に戻せます');
   }));
 
   // 控えを取るのも戻すのも、失うものが無いので一度押しでよい。
@@ -8882,24 +9125,16 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     Array.from(values.keys()).forEach(k => {
       const part = k.split('|');
       if (part.length < 2 || part[1] !== curYm) return;
-      if (part[0] === 'memo') return;                    // 注記は残す
-      const base = part[0].replace(/^mark:/, '');
+      if (isMonthNoteKey_(k)) return;                    // 注記・1on1 日程は残す
+      const base = part[0].replace(/^[a-z]+:/, '');      // mark: hand: swap: omark: を外した行キー
       const isDoc = doc.test(base);
       if (which === 'doctor' ? isDoc : !isDoc) values.delete(k);
     });
   }
 
-  arm($('clearDoc'), 'もう一度押すと消去', () => {
-    snapshot_('医師シフト消去の直前');
-    markEdited_();
-    clearMonth_('doctor');
-    renderGrid();
-    renderHistory();
-  });
-
   arm($('clearStaff'), 'もう一度押すと消去', () => {
     snapshot_('シフト消去の直前');
-    markEdited_();
+    markEdited_('シフトの消去');
     clearMonth_('other');
     renderGrid();
     renderHistory();
@@ -8966,9 +9201,15 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
      同じ考え方（直前に控える／復元の前にも控える）。 */
 
   const HISTORY_KEY = 'shiftgrid.history.v1';
-  const HISTORY_KEEP = 20;     // 月ごとの保持数
+  const HISTORY_KEEP = 50;     // 月ごとの保持数。操作ごとに控えるので、20 では半日もたない
   /** どこまで遡ったか。-1 は遡っていない状態。表を触ると -1 に戻る */
   let undoPos = -1;
+  /** 操作のあとの控えの予約（scheduleSnapshot_）。続けざまの同じ書き換え（文字を打つなど）は1つにまとめる */
+  let snapTimer = 0, snapLabel = '';
+  /** 控えを当てているあいだは、操作として控えない（戻した状態を新しい操作として積まない） */
+  let historyApplying = false;
+  /** この間隔（ミリ秒）より短く続いた同じ書き換えは、1つの操作にまとめる */
+  const SNAP_GROUP_MS = 700;
 
   /**
    * 控えは**メモリを正**とし、localStorage はその写しとして扱う。
@@ -9045,7 +9286,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       if (!isInput(row)) return;
       // 記号のほか、色の印（mark:）と手で入れた休みの印（hand:）も控える。
       // 落とすと、戻したあとの自動生成が手で入れた公休を書き換えてしまう
-      ['', 'mark:', 'hand:', 'swap:'].forEach(pre => {
+      ['', 'mark:', 'hand:', 'swap:', 'omark:'].forEach(pre => {
         const line = {};
         for (let c = 0; c < DAY_COLS; c++) {
           if (!days[c].inMonth) continue;
@@ -9089,16 +9330,26 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
   /** 控えの中身を表に当てる。控えは取らない（呼ぶ側の責任） */
   function applySnapshot_(snap) {
-    Array.from(values.keys()).forEach(k => {
-      if (k.split('|')[1] === curYm) values.delete(k);
-    });
-    Object.keys(snap.cells).forEach(rowKey => {
-      const line = snap.cells[rowKey];
-      Object.keys(line).forEach(d => {
-        values.set(rowKey + '|' + curYm + '|' + d, line[d]);
+    historyApplying = true;
+    try {
+      // 控え（currentCells_）が持つのはセルだけ。注記・1on1 日程（'memo|yyyy-mm' など2つに切れるキー）は
+      // 消さない。以前は戻すたびに、その月の注記が消えていた
+      Array.from(values.keys()).forEach(k => {
+        const p = k.split('|');
+        if (p.length === 3 && p[1] === curYm) values.delete(k);
       });
-    });
-    renderGrid();
+      Object.keys(snap.cells).forEach(rowKey => {
+        const line = snap.cells[rowKey];
+        Object.keys(line).forEach(d => {
+          values.set(rowKey + '|' + curYm + '|' + d, line[d]);
+        });
+      });
+      renderGrid();
+    } catch (e) {
+      console.error('[applySnapshot_] ' + e.message + ' / ' + e.stack);
+    } finally {
+      historyApplying = false;
+    }
   }
 
   /** 履歴の一覧から戻す。戻す前に、いまの状態も控える */
@@ -9123,6 +9374,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
    * どこまで遡ったかを覚えておき、編集したら忘れる。
    */
   function undoOnce_() {
+    flushSnapshot_();             // 直前の操作のあとの状態を、まだ控えていなければここで控える
     let list = loadHistory_()[curYm] || [];
     if (!list.length) { undoStat_('この月の控えがまだありません'); return; }
 
@@ -9180,12 +9432,52 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /**
-   * 表を触ったら、遡りの位置を忘れる。
-   * ここで枝分かれするので、進む先は無くなる（控えは残るので戻ることはできる）。
+   * 表を書き換える直前に呼ぶ。**操作ごとに控える**（現場の指定 2026-10）。
+   *   1. 前の操作のあとの状態をまだ控えていなければ、ここで控える（＝この操作の直前の状態）。
+   *      ただし同じ種類の書き換えが続いているあいだ（文字を打つ・続けて押す）は1つにまとめる
+   *   2. 戻した位置から書き換えたら、その先（進める先）は捨てる。残すと、次の「戻す」が
+   *      書き換えの直前ではなく、戻す前の状態へ飛んでしまう
+   *   3. この操作のあとの状態を、少し待ってから控える（scheduleSnapshot_）
+   * @param {string=} label 履歴に出す操作の名前
    */
-  function markEdited_() {
+  function markEdited_(label) {
+    const lbl = label || 'セルの編集';
+    if (snapTimer && snapLabel !== lbl) flushSnapshot_();
+    if (undoPos > 0) {
+      const h = loadHistory_();
+      const list = h[curYm] || [];
+      list.splice(0, undoPos);     // いま見ている状態が先頭になる
+      saveHistory_(h);
+    }
     undoPos = -1;
+    scheduleSnapshot_(lbl);
     updateUndoButtons_();
+  }
+
+  /** 操作のあとの状態を控える予約。続けて呼ばれたら待ち直す（同じ操作の続きとしてまとめる） */
+  function scheduleSnapshot_(label) {
+    if (historyApplying || !curYm) return;
+    if (!snapLabel) snapLabel = label || '編集';
+    clearTimeout(snapTimer);
+    snapTimer = setTimeout(flushSnapshot_, SNAP_GROUP_MS);
+  }
+
+  /** 予約してある控えを、いま取る。@return {boolean} 積んだか */
+  function flushSnapshot_() {
+    if (!snapTimer) return false;
+    clearTimeout(snapTimer);
+    snapTimer = 0;
+    const label = snapLabel || '編集';
+    snapLabel = '';
+    try {
+      const done = snapshot_(label);
+      if (done) renderHistory();
+      updateUndoButtons_();
+      return done;
+    } catch (e) {
+      console.error('[flushSnapshot_] ' + e.message + ' / ' + e.stack);
+      return false;
+    }
   }
 
   function fmtWhen_(iso) {
@@ -9423,7 +9715,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     // 表の中身は行が出来てからでないと入れられない
     if (parsed.shift) {
-      markEdited_();
+      markEdited_('データの取り込み');
       // 新しい形は 年月 -> 行 -> 日。月を持たない古い形は対象月のものとして扱う
       const isByMonth = Object.keys(parsed.shift).some(k => /^\d{4}-\d{1,2}$/.test(k));
       const src2 = isByMonth ? parsed.shift
@@ -9652,12 +9944,57 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     saveCells();
   });
 
+  // 1on1 日程。氏名は打つたびに保存（組み直さない）、日付・行の追加と削除は保存して組み直す
+  $('oneOnTable').addEventListener('input', ev => {
+    const t = ev.target;
+    if (!t.matches('input[data-i]')) return;
+    const list = oneOnRows_();
+    const i = Number(t.dataset.i);
+    if (!list[i]) return;
+    list[i].n = t.value.slice(0, 40);
+    saveOneOn_(list);
+    oneOnDrawn = curYm + '|' + JSON.stringify(list);   // 描いてあるものと同じ。組み直さない
+  });
+  $('oneOnTable').addEventListener('change', ev => {
+    const t = ev.target;
+    if (!t.matches('select[data-i]')) return;
+    const list = oneOnRows_();
+    const i = Number(t.dataset.i);
+    if (!list[i]) return;
+    list[i].d = Number(t.value) || 0;
+    saveOneOn_(list);
+    renderOneOn_();
+  });
+  $('oneOnTable').addEventListener('click', ev => {
+    const b = ev.target.closest('button[data-del]');
+    if (!b) return;
+    const list = oneOnRows_();
+    list.splice(Number(b.dataset.del), 1);
+    saveOneOn_(list);
+    renderOneOn_();
+  });
+  $('oneOnAdd').addEventListener('click', () => {
+    const list = oneOnRows_();
+    if (list.length >= ONEON_MAX) return;
+    list.push({ n: '', d: 0 });
+    saveOneOn_(list);
+    renderOneOn_();
+    const inputs = $('oneOnTable').querySelectorAll('input[data-i]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+  arm($('oneOnReset'), 'もう一度押すと読み直し', () => {
+    values.delete(oneOnKey());     // 「触っていない」状態に戻す（既定の名前が出る）
+    markEdited_();
+    saveCells();
+    renderOneOn_();
+  });
+
   $('monthMemo').addEventListener('input', () => {
     const v = $('monthMemo').value;
     // 空にしたときも記録する。消さないと既定が戻ってきてしまう
     values.set(memoKey(), v);
     $('monthMemoPrint').textContent = v;
-    markEdited_();
+    markEdited_('注記');
     saveCells();
   });
 
@@ -9905,12 +10242,82 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   }
 
   /**
+   * 1on1 日程を読む。**文字列を受けて配列を返すだけ。** 壊れた値・形の違う行は捨てる。
+   * @param {string} raw values に入っている JSON
+   * @param {number} maxDay その月の日数（これを超える日は未定に戻す）
+   * @return {Array<{n:string, d:number}>} n は氏名、d は日（0 = 未定）
+   */
+  function oneOnParse_(raw, maxDay) {
+    let a;
+    try { a = JSON.parse(String(raw || '')); } catch (e) { return []; }
+    if (!Array.isArray(a)) return [];
+    return a.filter(x => x && typeof x === 'object').slice(0, ONEON_MAX).map(x => {
+      const d = Math.floor(Number(x.d));
+      return { n: String(x.n == null ? '' : x.n).slice(0, 40), d: d >= 1 && d <= maxDay ? d : 0 };
+    });
+  }
+
+  /** 1on1 日程の既定。薬剤師と事務の全員（派遣を除く）を表の並びで。日付は未定 */
+  function oneOnDefault_(rows) {
+    return rows.filter(r => r.kind === 'staff' && (r.role === 'pharm' || r.role === 'clerk'))
+      .map(r => ({ n: r.label, d: 0 }));
+  }
+
+  /**
+   * 1on1 日程を紙と Excel の並びにする。**配列を受けて物を返すだけ。**
+   * 見本（実物のシフト表）と同じく3列に分け、上から下へ詰める。日付は「10月9日」。
+   * 「氏名・日付」の2列を1組として、組ごとに同じ色で塗る（見本と同じ。空いた段も塗る）。氏名も日付も空の行は出さない
+   * @param {Array<{n:string, d:number}>} list
+   * @param {number} month 月（1〜12）
+   * @return {{per:number, colors:Array<string>, cols:Array<Array<{name:string, date:string, color:string}>>}}
+   *   per は1列の行数、colors は列ごとの色
+   */
+  function oneOnLayout_(list, month) {
+    const items = (list || []).filter(x => String(x.n || '').trim() || x.d);
+    const per = Math.max(1, Math.ceil(items.length / 3));
+    const cols = [];
+    for (let i = 0; i < items.length; i += per) {
+      const color = ONEON_COLORS[cols.length % ONEON_COLORS.length];
+      cols.push(items.slice(i, i + per).map(x => ({
+        name: String(x.n || '').trim(),
+        date: x.d ? month + '月' + x.d + '日' : '',
+        color: color
+      })));
+    }
+    return { per: items.length ? per : 0, colors: cols.map((_, k) => ONEON_COLORS[k % ONEON_COLORS.length]), cols: cols };
+  }
+
+  /** いま開いている月の 1on1 日程。まだ触っていなければ既定（注記と同じ扱い。空にしたのとは違う） */
+  function oneOnRows_() {
+    const maxDay = days.filter(d => d.inMonth).length;
+    return values.has(oneOnKey()) ? oneOnParse_(values.get(oneOnKey()), maxDay) : oneOnDefault_(ROWS);
+  }
+
+  /**
+   * 紙と Excel に出す注記の行。**文字列を受けて配列を返すだけ。** 次の行は出さない（以前の既定の文面に入っていた）。
+   *   ・1on1 日程の表と重なる見出し（【1on1日程】だけの行）
+   *   ・色の印の説明と重なる行（印の名前そのもの、または「名前（…）」で始まる行。例: 薬品発注担当（土曜日と…））
+   * @param {string} text 注記
+   * @param {{per:number}=} oneOn oneOnLayout_ の結果
+   * @param {Array<string>=} markLabels 色の印の名前
+   * @return {Array<string>}
+   */
+  function memoLinesFor_(text, oneOn, markLabels) {
+    const labels = (markLabels || []).map(x => String(x || '').trim()).filter(Boolean);
+    const isMark = t => labels.some(k => t === k || t.indexOf(k + '（') === 0 || t.indexOf(k + '(') === 0);
+    return String(text || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean)
+      .filter(t => !(oneOn && oneOn.per && /^【1on1日程】[\s…:：]*$/.test(t)))
+      .filter(t => !isMark(t));
+  }
+
+  /**
    * 見本の様式（R8.8月シフト.xlsx）で書き出すための表。**DOM ではなくデータから作る。**
    * 色も画面の色ではなく、見本の色（土曜 青・日祝 赤・出られない日 灰）を当てる。
    * 書き出し側（buildTemplateXlsx_）は DB も DOM も見ない。
    */
   function templateModel_() {
     const y = Number($('yy').value), m = Number($('mm').value);
+    const oneOn = oneOnLayout_(oneOnRows_(), m);
     const line = r => {
       const out = [];
       for (let c = 0; c < DAY_COLS; c++) {
@@ -9951,10 +10358,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       note: noteRow ? line(noteRow).map(x => x.v) : [],
       legend: pats.filter(p => p.work).map(p => p.sym + '　' + p.label
         + (p.start && p.end ? '　' + p.start + '～' + p.end : '')),
-      offLegend: pats.filter(p => !p.work).map(p => p.sym + (p.pubOff ? '（公休枠）' : '')).join('　'),
       marks: byOrder(DB.marks || []).filter(k => k.label)
         .map(k => ({ color: k.color, label: k.label + (k.desc ? '（' + k.desc + '）' : '') })),
-      memo: String($('monthMemo').value || '').split(/\r?\n/).filter(t => t.trim()),
+      memo: memoLinesFor_($('monthMemo').value, oneOn, byOrder(DB.marks || []).map(k => k.label)),
+      oneOn: oneOn,
       calc: {
         aggHeads: AGG_COLS.map(aggHead_),
         aggSyms: AGG_COLS.map(a => (a.syms ? a.syms() : null)),
@@ -9980,6 +10387,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     H_TITLE: 48, H_ROW: 18, H_NOTE: 13,
     ZOOM: 70,
     MEMO_COL: 6,          // 注記を置く列（F）。凡例（A）の右に並べる
+    DAY_CHARS: 2.6,       // 日の列（幅 5.5）1列に入る全角の字数。色の印の説明が 1on1 の表に隠れないよう、表をずらす幅に使う
     STORE_COL: 18         // 店名を置く列（R）
   });
 
@@ -10143,19 +10551,46 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     /* 凡例（A）と注記（F〜）を横に並べる。色の凡例はその下に、B に色・C に意味 */
     add(T.H_ROW);
-    const legend = tm.legend.concat(tm.offLegend ? [tm.offLegend] : []);
+    const legend = tm.legend;                 // 勤務の記号と時間だけ。休みの記号は書かない
     const nLines = Math.max(legend.length, tm.memo.length);
     for (let i = 0; i < nLines; i++) {
       const r = add(T.H_ROW);
       if (legend[i]) put(r, 0, legend[i], { left: true });
       if (tm.memo[i]) put(r, T.MEMO_COL - 1, tm.memo[i], { left: true });
     }
-    if (tm.marks.length) add(T.H_ROW);
-    tm.marks.forEach(k => {
+    /*
+     * その下の段。左に色の印の説明（B に色・C に意味）を縦に、右に 1on1 日程を並べる。
+     * 1on1 日程は見本と同じ「氏名（3列ぶん）・日付（3列ぶん）」の組を3つ。説明の文字が表に隠れないよう、
+     * 表は説明のいちばん長い字数の分だけ右から始める（注記の列 F より左には寄せない）
+     */
+    const oo = tm.oneOn && tm.oneOn.per ? tm.oneOn : null;
+    const longest = tm.marks.reduce((a, k) => Math.max(a, String(k.label || '').length), 0);
+    const at0 = Math.min(SEP - 18, Math.max(T.MEMO_COL - 1, longest ? 3 + Math.ceil(longest / T.DAY_CHARS) : 0));
+    const nLow = Math.max(tm.marks.length, oo ? oo.per + 1 : 0);
+    if (nLow) add(T.H_ROW);
+    for (let j = 0; j < nLow; j++) {
       const r = add(T.H_ROW);
-      put(r, 1, '', { bg: k.color, b: false });
-      put(r, 2, k.label, { left: true });
-    });
+      const k0 = tm.marks[j];
+      if (k0) {
+        put(r, 1, '', { bg: k0.color, b: false });
+        put(r, 2, k0.label, { left: true });
+      }
+      if (!oo) continue;
+      if (j === 0) { put(r, at0, '【1on1日程】', { left: true }); continue; }
+      const i = j - 1;
+      if (i < oo.per) {
+        oo.cols.forEach((col, k) => {
+          const x = col[i] || { name: '', date: '', color: col[0].color };   // 空いた段も塗る（見本と同じ）
+          const at = at0 + k * 6;
+          const box = (c0, v, o) => {
+            for (let c = c0; c < c0 + 3; c++) put(r, c, c === c0 ? v : '', Object.assign({ bd: 'all' }, o));
+            merges.push(L(c0) + r.n + ':' + L(c0 + 2) + r.n);
+          };
+          box(at, x.name, { left: true, bg: x.color });
+          box(at + 3, x.date, { bg: x.color, b: false });
+        });
+      }
+    }
 
     /* ── XML ── */
     const cellXml = (ref, c) => {
@@ -10355,8 +10790,10 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
 
     // 高さ: 日付・曜日 / 医師 / 再掲 / 社員 / 備考 / 空き / 下の集計
     const nRows = 2 + tm.doctors.length + 1 + nStaff + 1 + 1 + AGG_ROWS.length;
-    const legend = tm.legend.concat(tm.offLegend ? [tm.offLegend] : []);
-    const footLines = Math.max(legend.length, tm.memo.length) + (tm.marks.length ? 1 : 0);
+    const legend = tm.legend;                 // 勤務の記号と時間だけ。休みの記号は書かない
+    const oo = tm.oneOn && tm.oneOn.per ? tm.oneOn : null;
+    // 下の段: 上に凡例・注記、その下に 色の印の説明（縦）と 1on1 日程（見出し1行＋表）を横に並べる
+    const footLines = Math.max(legend.length, tm.memo.length) + Math.max(tm.marks.length, oo ? oo.per + 1 : 0);
     const fixed = P.HEAD_H + P.GAP * 2 + footLines * P.LINE_H;
     const rowH = Math.max(P.ROW_MIN, Math.min(P.ROW_MAX, (P.PAGE_H - fixed) / Math.max(1, nRows)));
     const total = fixed + rowH * nRows;
@@ -10415,9 +10852,18 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       + '<span class="ps-store">' + esc(tm.store) + '</span></div>'
       + '<table class="ps-grid">' + cols + '<tbody>' + rows.join('') + '</tbody></table>'
       + '<div class="ps-foot"><div class="ps-legend">' + lines(legend) + '</div>'
-      + '<div class="ps-memo">' + lines(tm.memo) + '</div></div>'
-      + (tm.marks.length ? '<div class="ps-marks">' + tm.marks.map(k =>
-          '<span><i' + (safeColor_(k.color) ? ' style="background:' + safeColor_(k.color) + '"' : '') + '></i>' + esc(k.label) + '</span>').join('') + '</div>' : '')
+      + '<div class="ps-memo">' + lines(tm.memo) + '</div>'
+      // 色の印の説明は 1on1 日程の左に縦に並べる。ちょうど 1on1 の見出しと表の行に並ぶ
+      + (tm.marks.length || oo ? '<div class="ps-marks">' + tm.marks.map(k =>
+          '<div><i' + (safeColor_(k.color) ? ' style="background:' + safeColor_(k.color) + '"' : '') + '></i>' + esc(k.label) + '</div>').join('') + '</div>' : '')
+      + (oo ? '<div class="ps-1on1"><div class="ps-1on1-h">【1on1日程】</div><table>'
+        + Array.from({ length: oo.per }, (_, i) => '<tr>' + oo.cols.map(col => {
+          const x = col[i] || { name: '', date: '', color: col[0].color };   // 空いた段も塗る（見本と同じ）
+          const bg = safeColor_(x.color) ? ' style="background:' + safeColor_(x.color) + '"' : '';
+          return '<td class="n"' + bg + '>' + esc(x.name) + '</td><td class="d"' + bg + '>' + esc(x.date) + '</td>';
+        }).join('') + '</tr>').join('')
+        + '</table></div>' : '')
+      + '</div>'
       + '</div>';
   }
 
@@ -10761,6 +11207,13 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
   $('syncTake').addEventListener('click', syncForceMine);
 
   $('outPdf').addEventListener('click', exportPdf);
+  // 状態の文字は1行で切れるので、全文を title に写す（マウスを乗せると出る）
+  try {
+    const stat = $('tbStat');
+    const copy = () => { stat.title = Array.from(stat.children).map(n => n.textContent.trim()).filter(Boolean).join('\n'); };
+    new MutationObserver(copy).observe(stat, { childList: true, characterData: true, subtree: true });
+    copy();
+  } catch (e) { console.error('[tbStat] ' + e.message); }
 
   // 出力の色。一覧の色を押せば決まる。「その他の色」は選んでいるあいだも見本を追従させ、保存は change で1回だけ
   /** 薄さのバーの値で、その項目を「自動（テーマの色 + 薄さ）」にした色の設定を作る */
@@ -10924,7 +11377,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
       if (!v) return;
       const p = k.split('|');
       if (p.length === 3 && p[1] === curYm) out[k] = v;        // 記号・色の印
-      else if (k === 'memo' + tail) out[k] = v;                 // その月の注記
+      else if (isMonthNoteKey_(k) && k.endsWith(tail)) out[k] = v;   // その月の注記・1on1 日程
     });
     return out;
   }
@@ -10939,11 +11392,11 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
     try {
       Array.from(values.keys()).forEach(k => {
         const p = k.split('|');
-        if ((p.length === 3 && p[1] === curYm) || k === 'memo|' + curYm) values.delete(k);
+        if ((p.length === 3 && p[1] === curYm) || (isMonthNoteKey_(k) && p[1] === curYm)) values.delete(k);
       });
       Object.keys(cells || {}).forEach(k => {
         const okCell = /^[^|]+\|\d{4}-\d{2}\|\d{1,2}$/.test(k);
-        const okMemo = /^memo\|\d{4}-\d{2}$/.test(k);
+        const okMemo = isMonthNoteKey_(k);
         if ((okCell || okMemo) && cells[k]) values.set(k, String(cells[k]));
       });
       renderGrid();
@@ -11885,7 +12338,7 @@ table.mt .mv:hover { color: var(--accent); background: var(--accent-soft); }
           + r.overflow.join('、') + '。自動生成ルールで行数を増やしてください');
       }
       intakeStat_(bits.join(' / '));
-      markEdited_();
+      markEdited_('医師シフトの取り込み');
       recalc();
     } catch (e) {
       console.error('[runIntake_] ' + e.message + ' / ' + e.stack);
